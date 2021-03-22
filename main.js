@@ -1,4 +1,3 @@
-
 let CCAutomated;
 if (!CCAutomated) CCAutomated = {};
 
@@ -12,6 +11,7 @@ if (!CCAutomated.ConfigBackup) CCAutomated.ConfigBackup = {};
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
     GoldenCookies: 0,
+    Wrinklers: 0,
     Grimoire: 0
 };
 
@@ -22,6 +22,10 @@ CCAutomated.ConfigData.AutoClicker = {
 CCAutomated.ConfigData.GoldenCookies = {
     label: ['OFF', 'ON'],
     description: 'Auto-clicker for Golden Cookies'
+};
+CCAutomated.ConfigData.Wrinklers = {
+    label: ['OFF', 'ON'],
+    description: 'Auto-clicker for Wrinklers'
 };
 CCAutomated.ConfigData.Grimoire = {
     label: ['OFF', 'ON'],
@@ -104,6 +108,7 @@ CCAutomated.ConfigDisplay.displayMenu = function() {
     }
     frag.appendChild(listing('AutoClicker'));
     frag.appendChild(listing('GoldenCookies'));
+    frag.appendChild(listing('Wrinklers'));
     frag.appendChild(listing('Grimoire'));
     l('menu').childNodes[2].insertBefore(frag, l('menu').childNodes[2].childNodes[l('menu').childNodes[2].childNodes.length - 1]);
 }
@@ -122,7 +127,7 @@ CCAutomated.handleAutoClicker= function() {
 }
 
 // Handle auto clicking Golden Cookies
-CCAutomated.handleGoldenCookie = function() {
+CCAutomated.handleGoldenCookies = function() {
     if (CCAutomated.Config.GoldenCookies === 0) return;
     if (Game.TickerEffect) Game.tickerL.click();
     for (let sx in Game.shimmers) {
@@ -135,6 +140,33 @@ CCAutomated.handleGoldenCookie = function() {
         if ((s.life / Game.fps) < (s.dur - 2) && (Game.Achievements["Fading luck"].won)) {
             s.pop();
             return;
+        }
+    }
+}
+
+// Handle auto clicking Wrinklers
+CCAutomated.wrinklerTime = Date.now();
+CCAutomated.handleWrinklers = function() {
+    if (CCAutomated.Config.Wrinklers === 0) return;
+    if (!Game.Upgrades["One mind"].bought) return;
+    if (Game.Upgrades["Unholy bait"].bought && !Game.Achievements["Moistburster"].won) {
+        Game.wrinklers.forEach(function(w) { if (w.close === 1) w.hp = 0; } );
+    } else {
+        // Find a wrinkler which sucked the most cookies
+        CCAutomated.nextWrinkler = -1;
+        let maxSucked = 0;
+        for (let wrinkler of Game.wrinklers) {
+            if (wrinkler.sucked > maxSucked && wrinkler.close !== 0){
+                maxSucked = wrinkler.sucked;
+                CCAutomated.nextWrinkler = wrinkler.id;
+            }
+        }
+        // Pop a wrinkler every 2 hours
+        if (CCAutomated.nextWrinkler !== -1) {
+            if (Date.now() - CCAutomated.wrinklerTime >= 2*60*60*1000) {
+                Game.wrinklers[AutoPlay.nextWrinkler].hp = 0;
+                CCAutomated.wrinklerTime = Date.now();
+            }
         }
     }
 }
@@ -163,5 +195,6 @@ CCAutomated.handleGrimoire = function() {
 // Start Cookie Clicker Automated
 CCAutomated.loadConfig();
 CCAutomated.startAutoClicker = setInterval(CCAutomated.handleAutoClicker, 10);
-CCAutomated.startGoldenCookieClicker = setInterval(CCAutomated.handleGoldenCookie, 400);
+CCAutomated.startGoldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, 400);
+CCAutomated.startWrinklerClicker = setInterval(CCAutomated.handleWrinklers, 400);
 CCAutomated.startGrimoire = setInterval(CCAutomated.handleGrimoire, 400);
