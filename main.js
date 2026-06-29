@@ -17,6 +17,15 @@ CCAutomated.IntervalMs = {
     grimoire: 400,
     autoBuyer: 1000
 };
+CCAutomated.AutoBuyer = {
+    target: null,
+    lastRefresh: 0,
+    lastCookiesPerSecond: 0,
+    lastStoreSignature: '',
+    refreshMs: 10000,
+    cpsRefreshRatio: 0.05,
+    maxWaitSeconds: 600
+};
 
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
@@ -120,11 +129,21 @@ CCAutomated.ConfigDisplay.displayMenu = function() {
     for (let config in CCAutomated.ConfigDefault) {
         frag.appendChild(listing(config));
     }
+    frag.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
 
     let menu = l('menu');
     let menuContent = menu && menu.childNodes[2];
     if (!menuContent) return;
     menuContent.insertBefore(frag, menuContent.childNodes[menuContent.childNodes.length - 1]);
+};
+
+CCAutomated.ConfigDisplay.autoBuyerStatus = function() {
+    let div = document.createElement('div');
+    div.className = 'listing';
+    div.style.opacity = '0.75';
+    div.style.paddingTop = '4px';
+    div.textContent = CCAutomated.getAutoBuyerStatusText();
+    return div;
 };
 
 if (!CCAutomated.ConfigBackup.UpdateMenu) CCAutomated.ConfigBackup.UpdateMenu = Game.UpdateMenu;
@@ -268,6 +287,38 @@ CCAutomated.getAutoBuyerScore = function(price, gain, cookies, cookiesPerSecond)
     return waitSeconds + (price / gain);
 };
 
+CCAutomated.getAutoBuyerWaitSeconds = function(price, cookies, cookiesPerSecond) {
+    if (price <= cookies) return 0;
+    if (cookiesPerSecond <= 0) return Infinity;
+    return (price - cookies) / cookiesPerSecond;
+};
+
+CCAutomated.getAutoBuyerCandidateId = function(type, item) {
+    if (!item) return type + ':unknown';
+    if (typeof item.id !== 'undefined') return type + ':' + item.id;
+    return type + ':' + item.name;
+};
+
+CCAutomated.getAutoBuyerStoreSignature = function() {
+    let upgradeSignature = '';
+
+    if (Game.UpgradesInStore) {
+        for (let i = 0; i < Game.UpgradesInStore.length; i++) {
+            let upgrade = Game.UpgradesInStore[i];
+            upgradeSignature += CCAutomated.getAutoBuyerCandidateId('upgrade', upgrade) + '|';
+        }
+    }
+
+    return upgradeSignature;
+};
+
+CCAutomated.formatAutoBuyerTime = function(seconds) {
+    if (!isFinite(seconds) || seconds <= 0) return 'now';
+    if (seconds < 60) return Math.ceil(seconds) + 's';
+    if (seconds < 3600) return Math.ceil(seconds / 60) + 'm';
+    return Math.ceil(seconds / 3600) + 'h';
+};
+
 CCAutomated.estimateBuildingCpsGain = function(object) {
     if (!object || typeof object.amount !== 'number') return 0;
 
@@ -329,14 +380,17 @@ CCAutomated.getAutoBuyerCandidates = function() {
 
             let score = CCAutomated.getAutoBuyerScore(price, gain, cookies, cookiesPerSecond);
             if (!isFinite(score)) continue;
+            let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(price, cookies, cookiesPerSecond);
 
             candidates.push({
                 type: 'building',
+                id: CCAutomated.getAutoBuyerCandidateId('building', object),
                 item: object,
                 name: object.name,
                 price: price,
                 gain: gain,
                 affordable: price <= cookies,
+                waitSeconds: waitSeconds,
                 score: score
             });
         }
@@ -355,14 +409,17 @@ CCAutomated.getAutoBuyerCandidates = function() {
 
             let upgradeScore = CCAutomated.getAutoBuyerScore(upgradePrice, upgradeGain, cookies, cookiesPerSecond);
             if (!isFinite(upgradeScore)) continue;
+            let upgradeWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(upgradePrice, cookies, cookiesPerSecond);
 
             candidates.push({
                 type: 'upgrade',
+                id: CCAutomated.getAutoBuyerCandidateId('upgrade', upgrade),
                 item: upgrade,
                 name: upgrade.name,
                 price: upgradePrice,
                 gain: upgradeGain,
                 affordable: upgradePrice <= cookies,
+                waitSeconds: upgradeWaitSeconds,
                 score: upgradeScore
             });
         }
@@ -374,12 +431,80 @@ CCAutomated.getAutoBuyerCandidates = function() {
 CCAutomated.getBestAutoBuyerCandidate = function() {
     let candidates = CCAutomated.getAutoBuyerCandidates();
     let best = null;
+    let bestAffordable = null;
+    let bestWithinWait = null;
 
     for (let i = 0; i < candidates.length; i++) {
         if (!best || candidates[i].score < best.score) best = candidates[i];
+        if (candidates[i].affordable && (!bestAffordable || candidates[i].score < bestAffordable.score)) bestAffordable = candidates[i];
+        if (candidates[i].waitSeconds <= CCAutomated.AutoBuyer.maxWaitSeconds && (!bestWithinWait || candidates[i].score < bestWithinWait.score)) bestWithinWait = candidates[i];
     }
 
-    return best;
+    return bestWithinWait || bestAffordable || best;
+};
+
+CCAutomated.isAutoBuyerTargetValid = function(candidate) {
+    if (!candidate || !candidate.item) return false;
+
+    if (candidate.type === 'building') {
+        return isFinite(CCAutomated.getObjectPrice(candidate.item));
+    }
+    if (candidate.type === 'upgrade') {
+        return CCAutomated.isUpgradeCandidate(candidate.item);
+    }
+
+    return false;
+};
+
+CCAutomated.updateAutoBuyerTargetPrice = function(candidate) {
+    if (!candidate) return null;
+
+    let cookies = typeof Game.cookies === 'number' ? Game.cookies : 0;
+    if (candidate.type === 'building') {
+        candidate.price = CCAutomated.getObjectPrice(candidate.item);
+    } else if (candidate.type === 'upgrade') {
+        candidate.price = CCAutomated.getUpgradePrice(candidate.item);
+    }
+
+    candidate.affordable = candidate.price <= cookies;
+    candidate.waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, cookies, CCAutomated.getCookiesPerSecond());
+    return candidate;
+};
+
+CCAutomated.getAutoBuyerStatusText = function() {
+    if (CCAutomated.Config.AutoBuyer === 0) return 'Auto-buyer target: inactive';
+
+    let candidate = CCAutomated.updateAutoBuyerTargetPrice(CCAutomated.AutoBuyer.target);
+    if (!candidate) return 'Auto-buyer target: scanning';
+
+    let cookies = typeof Game.cookies === 'number' ? Game.cookies : 0;
+    let cookiesPerSecond = CCAutomated.getCookiesPerSecond();
+    let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, cookies, cookiesPerSecond);
+    let action = candidate.affordable ? 'ready' : 'waiting ' + CCAutomated.formatAutoBuyerTime(waitSeconds);
+
+    return 'Auto-buyer target: ' + candidate.name + ' (' + candidate.type + ', ' + action + ')';
+};
+
+CCAutomated.shouldRefreshAutoBuyerTarget = function() {
+    let now = Date.now();
+    let cookiesPerSecond = CCAutomated.getCookiesPerSecond();
+    let storeSignature = CCAutomated.getAutoBuyerStoreSignature();
+    let previousCookiesPerSecond = CCAutomated.AutoBuyer.lastCookiesPerSecond;
+
+    if (!CCAutomated.isAutoBuyerTargetValid(CCAutomated.AutoBuyer.target)) return true;
+    if (now - CCAutomated.AutoBuyer.lastRefresh >= CCAutomated.AutoBuyer.refreshMs) return true;
+    if (storeSignature !== CCAutomated.AutoBuyer.lastStoreSignature) return true;
+    if (previousCookiesPerSecond <= 0 && cookiesPerSecond > 0) return true;
+    if (previousCookiesPerSecond > 0 && Math.abs(cookiesPerSecond - previousCookiesPerSecond) / previousCookiesPerSecond >= CCAutomated.AutoBuyer.cpsRefreshRatio) return true;
+
+    return false;
+};
+
+CCAutomated.refreshAutoBuyerTarget = function() {
+    CCAutomated.AutoBuyer.target = CCAutomated.getBestAutoBuyerCandidate();
+    CCAutomated.AutoBuyer.lastRefresh = Date.now();
+    CCAutomated.AutoBuyer.lastCookiesPerSecond = CCAutomated.getCookiesPerSecond();
+    CCAutomated.AutoBuyer.lastStoreSignature = CCAutomated.getAutoBuyerStoreSignature();
 };
 
 CCAutomated.buyAutoBuyerCandidate = function(candidate) {
@@ -408,8 +533,14 @@ CCAutomated.buyAutoBuyerCandidate = function(candidate) {
 CCAutomated.handleAutoBuyer = function() {
     if (CCAutomated.Config.AutoBuyer === 0) return;
 
-    let candidate = CCAutomated.getBestAutoBuyerCandidate();
-    CCAutomated.buyAutoBuyerCandidate(candidate);
+    if (CCAutomated.shouldRefreshAutoBuyerTarget()) {
+        CCAutomated.refreshAutoBuyerTarget();
+    }
+
+    let candidate = CCAutomated.updateAutoBuyerTargetPrice(CCAutomated.AutoBuyer.target);
+    if (CCAutomated.buyAutoBuyerCandidate(candidate)) {
+        CCAutomated.AutoBuyer.target = null;
+    }
 };
 
 CCAutomated.stop = function() {

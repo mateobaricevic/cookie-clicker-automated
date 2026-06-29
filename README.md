@@ -29,6 +29,12 @@ The auto-buyer checks visible buildings and store upgrades, estimates how much e
 
 If the best-scoring option is not affordable yet, the addon waits instead of buying a weaker cheaper option.
 
+To avoid saving forever, the buyer prefers targets that are affordable or within about 10 minutes at the current CpS.
+
+The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades change, or when CpS changes noticeably.
+
+The settings menu shows the current auto-buyer target and whether the addon is ready to buy or waiting.
+
 It skips upgrades that do not directly improve CpS, including debug, prestige, and toggle upgrades.
 
 ## Development
