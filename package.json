@@ -1,0 +1,10 @@
+{
+  "name": "cookie-clicker-automated",
+  "version": "1.0.0",
+  "description": "A Cookie Clicker addon for automating common actions.",
+  "private": true,
+  "scripts": {
+    "check": "node --check main.js"
+  },
+  "license": "GPL-3.0-only"
+}

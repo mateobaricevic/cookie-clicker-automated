@@ -10,6 +10,12 @@ CCAutomated.ConfigData = {};
 CCAutomated.ConfigDisplay = {};
 if (!CCAutomated.ConfigBackup) CCAutomated.ConfigBackup = {};
 CCAutomated.Intervals = {};
+CCAutomated.IntervalMs = {
+    autoClicker: 10,
+    goldenCookieClicker: 400,
+    wrinklerClicker: 400,
+    grimoire: 400
+};
 
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
@@ -75,8 +81,12 @@ CCAutomated.toggleConfigEntry = function(config) {
     } else {
         CCAutomated.Config[config] = 0;
     }
-    l(CCAutomated.ConfigPrefix + config).innerHTML = CCAutomated.ConfigData[config].label[CCAutomated.Config[config]];
-    l(CCAutomated.ConfigPrefix + config).className = CCAutomated.Config[config] ? 'option' : 'option off';
+
+    let option = l(CCAutomated.ConfigPrefix + config);
+    if (option) {
+        option.textContent = CCAutomated.ConfigData[config].label[CCAutomated.Config[config]];
+        option.className = CCAutomated.Config[config] ? 'option' : 'option off';
+    }
     CCAutomated.saveConfig(CCAutomated.Config);
 };
 
@@ -219,9 +229,13 @@ CCAutomated.stop = function() {
     }
 };
 
+CCAutomated.start = function() {
+    CCAutomated.loadConfig();
+    CCAutomated.Intervals.autoClicker = setInterval(CCAutomated.handleAutoClicker, CCAutomated.IntervalMs.autoClicker);
+    CCAutomated.Intervals.goldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, CCAutomated.IntervalMs.goldenCookieClicker);
+    CCAutomated.Intervals.wrinklerClicker = setInterval(CCAutomated.handleWrinklers, CCAutomated.IntervalMs.wrinklerClicker);
+    CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, CCAutomated.IntervalMs.grimoire);
+};
+
 // Start Cookie Clicker Automated
-CCAutomated.loadConfig();
-CCAutomated.Intervals.autoClicker = setInterval(CCAutomated.handleAutoClicker, 10);
-CCAutomated.Intervals.goldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, 400);
-CCAutomated.Intervals.wrinklerClicker = setInterval(CCAutomated.handleWrinklers, 400);
-CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, 400);
+CCAutomated.start();
