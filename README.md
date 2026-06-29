@@ -2,7 +2,7 @@
 
 Cookie Clicker Automated is an addon for the [Cookie Clicker](https://orteil.dashnet.org/cookieclicker/) game.
 It can automate clicking the Big Cookie, popping Golden Cookies, popping Wrinklers, and using selected Grimoire spells.
-It can also auto-buy the best affordable building or upgrade based on estimated cookies-per-second gain.
+It can also auto-buy or save for the best building or upgrade based on estimated payoff time.
 
 ## Bookmarklet
 
@@ -20,12 +20,14 @@ javascript: (function () {
 - Golden Cookie auto-clicker.
 - Wrinkler popping automation.
 - Wizard tower Grimoire automation for selected spell timing.
-- Auto-buyer for the best affordable building or upgrade.
+- Auto-buyer that can save for higher-value buildings or upgrades.
 - Preferences menu entries inside Cookie Clicker's settings menu.
 
 ## Auto-Buyer
 
-The auto-buyer checks affordable buildings and upgrades, estimates how much each one would improve cookies per second, then buys the option with the best CpS gain per cookie spent.
+The auto-buyer checks visible buildings and store upgrades, estimates how much each one would improve cookies per second, and scores each option by total payoff time: time needed to afford it plus time needed to earn back its cost from the CpS gain.
+
+If the best-scoring option is not affordable yet, the addon waits instead of buying a weaker cheaper option.
 
 It skips upgrades that do not directly improve CpS, including debug, prestige, and toggle upgrades.
 
