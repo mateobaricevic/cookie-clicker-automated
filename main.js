@@ -1,5 +1,7 @@
-let CCAutomated;
-if (!CCAutomated) CCAutomated = {};
+var CCAutomated = window.CCAutomated || {};
+window.CCAutomated = CCAutomated;
+
+if (typeof CCAutomated.stop === 'function') CCAutomated.stop();
 
 // Config
 CCAutomated.ConfigPrefix = 'ccAutomatedConfig';
@@ -7,6 +9,7 @@ CCAutomated.Config = {};
 CCAutomated.ConfigData = {};
 CCAutomated.ConfigDisplay = {};
 if (!CCAutomated.ConfigBackup) CCAutomated.ConfigBackup = {};
+CCAutomated.Intervals = {};
 
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
@@ -33,36 +36,38 @@ CCAutomated.ConfigData.Grimoire = {
 };
 
 CCAutomated.restoreDefaultConfig = function() {
-    CCAutomated.Config = {};
-    CCAutomated.saveConfig(CCAutomated.ConfigDefault);
-    CCAutomated.loadConfig();
+    CCAutomated.Config = Object.assign({}, CCAutomated.ConfigDefault);
+    CCAutomated.saveConfig(CCAutomated.Config);
     Game.UpdateMenu();
-}
+};
 
 CCAutomated.saveConfig = function(config) {
     try {
         window.localStorage.setItem(CCAutomated.ConfigPrefix, JSON.stringify(config));
-    } catch (e) {}
-}
+    } catch (e) {
+        console.warn('[CCAutomated] Failed to save config', e);
+    }
+};
 
 CCAutomated.loadConfig = function() {
     try {
-        if (window.localStorage.getItem(CCAutomated.ConfigPrefix) != null) {
-            CCAutomated.Config = JSON.parse(window.localStorage.getItem(CCAutomated.ConfigPrefix));
-            // Check values
-            let modified = false;
-            for (let i in CCAutomated.ConfigDefault) {
-                if (typeof CCAutomated.Config[i] === 'undefined' || CCAutomated.Config[i] < 0 || CCAutomated.Config[i] >= CCAutomated.ConfigData[i].label.length) {
-                    modified = true;
-                    CCAutomated.Config[i] = CCAutomated.ConfigDefault[i];
-                }
+        let storedConfig = window.localStorage.getItem(CCAutomated.ConfigPrefix);
+        CCAutomated.Config = storedConfig ? JSON.parse(storedConfig) : {};
+
+        let modified = !storedConfig;
+        for (let i in CCAutomated.ConfigDefault) {
+            if (typeof CCAutomated.Config[i] === 'undefined' || CCAutomated.Config[i] < 0 || CCAutomated.Config[i] >= CCAutomated.ConfigData[i].label.length) {
+                modified = true;
+                CCAutomated.Config[i] = CCAutomated.ConfigDefault[i];
             }
-            if (modified) CCAutomated.saveConfig(CCAutomated.Config);
-        } else {
-            CCAutomated.restoreDefaultConfig();
         }
-    } catch (e) {}
-}
+        if (modified) CCAutomated.saveConfig(CCAutomated.Config);
+    } catch (e) {
+        console.warn('[CCAutomated] Failed to load config; restoring defaults', e);
+        CCAutomated.Config = Object.assign({}, CCAutomated.ConfigDefault);
+        CCAutomated.saveConfig(CCAutomated.Config);
+    }
+};
 
 CCAutomated.toggleConfigEntry = function(config) {
     if (CCAutomated.Config[config] === 0) {
@@ -73,19 +78,9 @@ CCAutomated.toggleConfigEntry = function(config) {
     l(CCAutomated.ConfigPrefix + config).innerHTML = CCAutomated.ConfigData[config].label[CCAutomated.Config[config]];
     l(CCAutomated.ConfigPrefix + config).className = CCAutomated.Config[config] ? 'option' : 'option off';
     CCAutomated.saveConfig(CCAutomated.Config);
-}
+};
 
 CCAutomated.ConfigDisplay.displayMenu = function() {
-    let header = function (text) {
-        let div = document.createElement('div');
-        div.className = 'listing';
-        div.style.padding = '5px 16px';
-        div.style.opacity = '0.7';
-        div.style.fontSize = '17px';
-        div.style.fontFamily = '\"Kavoon\", Georgia, serif';
-        div.textContent = text;
-        return div;
-    };
     let frag = document.createDocumentFragment();
     let div = document.createElement('div');
     div.className = 'title';
@@ -105,26 +100,29 @@ CCAutomated.ConfigDisplay.displayMenu = function() {
         label.textContent = CCAutomated.ConfigData[config].description;
         div.appendChild(label);
         return div;
+    };
+    for (let config in CCAutomated.ConfigDefault) {
+        frag.appendChild(listing(config));
     }
-    frag.appendChild(listing('AutoClicker'));
-    frag.appendChild(listing('GoldenCookies'));
-    frag.appendChild(listing('Wrinklers'));
-    frag.appendChild(listing('Grimoire'));
-    l('menu').childNodes[2].insertBefore(frag, l('menu').childNodes[2].childNodes[l('menu').childNodes[2].childNodes.length - 1]);
-}
+
+    let menu = l('menu');
+    let menuContent = menu && menu.childNodes[2];
+    if (!menuContent) return;
+    menuContent.insertBefore(frag, menuContent.childNodes[menuContent.childNodes.length - 1]);
+};
 
 if (!CCAutomated.ConfigBackup.UpdateMenu) CCAutomated.ConfigBackup.UpdateMenu = Game.UpdateMenu;
 
 Game.UpdateMenu = function() {
     CCAutomated.ConfigBackup.UpdateMenu();
     if (Game.onMenu === 'prefs') CCAutomated.ConfigDisplay.displayMenu();
-}
+};
 
 // Handle auto clicking Big Cookie
 CCAutomated.handleAutoClicker= function() {
     if (CCAutomated.Config.AutoClicker === 0) return;
     Game.ClickCookie();
-}
+};
 
 // Handle auto clicking Golden Cookies
 CCAutomated.handleGoldenCookies = function() {
@@ -142,7 +140,7 @@ CCAutomated.handleGoldenCookies = function() {
             return;
         }
     }
-}
+};
 
 // Handle auto clicking Wrinklers
 CCAutomated.wrinklerTime = Date.now();
@@ -164,12 +162,30 @@ CCAutomated.handleWrinklers = function() {
         // Pop a wrinkler every 2 hours
         if (CCAutomated.nextWrinkler !== -1) {
             if (Date.now() - CCAutomated.wrinklerTime >= 2*60*60*1000) {
-                Game.wrinklers[AutoPlay.nextWrinkler].hp = 0;
+                Game.wrinklers[CCAutomated.nextWrinkler].hp = 0;
                 CCAutomated.wrinklerTime = Date.now();
             }
         }
     }
-}
+};
+
+CCAutomated.getCpsMultiplier = function() {
+    let multiplier = 1;
+    if (!Game.buffs) return multiplier;
+
+    for (let buffName in Game.buffs) {
+        let buff = Game.buffs[buffName];
+        if (typeof buff.multCpS === 'number') multiplier *= buff.multCpS;
+    }
+    return multiplier;
+};
+
+CCAutomated.canUseLumps = function(grimoire) {
+    if (typeof Game.canLumps !== 'function' || !Game.canLumps()) return false;
+    if (Game.lumps <= 100 || !grimoire.lumpRefill) return false;
+    if (!grimoire.lumpRefill.classList) return true;
+    return !grimoire.lumpRefill.classList.contains('disabled');
+};
 
 // Handle Wizard towers: Grimoire minigame
 CCAutomated.handleGrimoire = function() {
@@ -185,16 +201,27 @@ CCAutomated.handleGrimoire = function() {
             tower.sell(tower.amount - 30);
         }
         spell = grimoire.spells["conjure baked goods"];
-        if (CCAutomated.cpsMult > 100) {
+        if (CCAutomated.getCpsMultiplier() > 100) {
             if (grimoire.magic >= grimoire.getSpellCost(spell)) { grimoire.castSpell(spell); return; }
-            if (CCAutomated.canUseLumps && Game.lumps > 100) { grimoire.lumpRefill.click(); }
+            if (CCAutomated.canUseLumps(grimoire)) { grimoire.lumpRefill.click(); }
         }
     }
-}
+};
+
+CCAutomated.stop = function() {
+    for (let key in CCAutomated.Intervals) {
+        clearInterval(CCAutomated.Intervals[key]);
+    }
+    CCAutomated.Intervals = {};
+
+    if (CCAutomated.ConfigBackup && CCAutomated.ConfigBackup.UpdateMenu) {
+        Game.UpdateMenu = CCAutomated.ConfigBackup.UpdateMenu;
+    }
+};
 
 // Start Cookie Clicker Automated
 CCAutomated.loadConfig();
-CCAutomated.startAutoClicker = setInterval(CCAutomated.handleAutoClicker, 10);
-CCAutomated.startGoldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, 400);
-CCAutomated.startWrinklerClicker = setInterval(CCAutomated.handleWrinklers, 400);
-CCAutomated.startGrimoire = setInterval(CCAutomated.handleGrimoire, 400);
+CCAutomated.Intervals.autoClicker = setInterval(CCAutomated.handleAutoClicker, 10);
+CCAutomated.Intervals.goldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, 400);
+CCAutomated.Intervals.wrinklerClicker = setInterval(CCAutomated.handleWrinklers, 400);
+CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, 400);
