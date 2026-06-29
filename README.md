@@ -10,7 +10,7 @@ Copy this code and save it as a bookmark. Paste it in the URL section. To activa
 
 ```javascript
 javascript: (function () {
-	Game.LoadMod('https://mateobaricevic.github.io/cookie-clicker-automated/main.js');
+ Game.LoadMod('https://mateobaricevic.github.io/cookie-clicker-automated/main.js?v=' + Date.now());
 }());
 ```
 
