@@ -14,14 +14,16 @@ CCAutomated.IntervalMs = {
     autoClicker: 10,
     goldenCookieClicker: 400,
     wrinklerClicker: 400,
-    grimoire: 400
+    grimoire: 400,
+    autoBuyer: 5000
 };
 
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
     GoldenCookies: 0,
     Wrinklers: 0,
-    Grimoire: 0
+    Grimoire: 0,
+    AutoBuyer: 0
 };
 
 CCAutomated.ConfigData.AutoClicker = {
@@ -39,6 +41,10 @@ CCAutomated.ConfigData.Wrinklers = {
 CCAutomated.ConfigData.Grimoire = {
     label: ['OFF', 'ON'],
     description: 'Automated use of spells from Wizard Towers: Grimoire'
+};
+CCAutomated.ConfigData.AutoBuyer = {
+    label: ['OFF', 'ON'],
+    description: 'Auto-buy best affordable building or upgrade by estimated CpS gain'
 };
 
 CCAutomated.restoreDefaultConfig = function() {
@@ -218,6 +224,171 @@ CCAutomated.handleGrimoire = function() {
     }
 };
 
+CCAutomated.getCookiesPerSecond = function() {
+    if (typeof Game.cookiesPs === 'number') return Game.cookiesPs;
+    if (typeof Game.cookiesPsRaw === 'number') return Game.cookiesPsRaw;
+    return 0;
+};
+
+CCAutomated.recalculateGains = function() {
+    if (typeof Game.CalculateGains === 'function') Game.CalculateGains();
+};
+
+CCAutomated.getObjectPrice = function(object) {
+    if (!object) return Infinity;
+    if (typeof object.getPrice === 'function') return object.getPrice();
+    if (typeof object.price === 'number') return object.price;
+    return Infinity;
+};
+
+CCAutomated.getUpgradePrice = function(upgrade) {
+    if (!upgrade) return Infinity;
+    if (typeof upgrade.getPrice === 'function') return upgrade.getPrice();
+    if (typeof upgrade.basePrice === 'number') return upgrade.basePrice;
+    if (typeof upgrade.price === 'number') return upgrade.price;
+    return Infinity;
+};
+
+CCAutomated.canBuyUpgrade = function(upgrade) {
+    if (!upgrade || upgrade.bought) return false;
+    if (upgrade.pool === 'toggle' || upgrade.pool === 'debug' || upgrade.pool === 'prestige') return false;
+    if (upgrade.unlocked === 0 || upgrade.unlocked === false) return false;
+    if (typeof upgrade.canBuy === 'function' && !upgrade.canBuy()) return false;
+    return true;
+};
+
+CCAutomated.estimateBuildingCpsGain = function(object) {
+    if (!object || typeof object.amount !== 'number') return 0;
+
+    let originalAmount = object.amount;
+    let originalBought = object.bought;
+    let originalCps = CCAutomated.getCookiesPerSecond();
+    let gain = 0;
+
+    try {
+        object.amount += 1;
+        if (typeof object.bought === 'number') object.bought += 1;
+        CCAutomated.recalculateGains();
+        gain = CCAutomated.getCookiesPerSecond() - originalCps;
+    } catch (e) {
+        console.warn('[CCAutomated] Failed to estimate building purchase', object.name, e);
+    } finally {
+        object.amount = originalAmount;
+        if (typeof originalBought !== 'undefined') object.bought = originalBought;
+        CCAutomated.recalculateGains();
+    }
+
+    return Math.max(0, gain);
+};
+
+CCAutomated.estimateUpgradeCpsGain = function(upgrade) {
+    if (!upgrade) return 0;
+
+    let originalBought = upgrade.bought;
+    let originalCps = CCAutomated.getCookiesPerSecond();
+    let gain = 0;
+
+    try {
+        upgrade.bought = 1;
+        CCAutomated.recalculateGains();
+        gain = CCAutomated.getCookiesPerSecond() - originalCps;
+    } catch (e) {
+        console.warn('[CCAutomated] Failed to estimate upgrade purchase', upgrade.name, e);
+    } finally {
+        upgrade.bought = originalBought;
+        CCAutomated.recalculateGains();
+    }
+
+    return Math.max(0, gain);
+};
+
+CCAutomated.getAutoBuyerCandidates = function() {
+    let candidates = [];
+    let cookies = typeof Game.cookies === 'number' ? Game.cookies : 0;
+
+    if (Game.ObjectsById) {
+        for (let i = 0; i < Game.ObjectsById.length; i++) {
+            let object = Game.ObjectsById[i];
+            let price = CCAutomated.getObjectPrice(object);
+            if (!isFinite(price) || price <= 0 || price > cookies) continue;
+
+            let gain = CCAutomated.estimateBuildingCpsGain(object);
+            if (gain <= 0) continue;
+
+            candidates.push({
+                type: 'building',
+                item: object,
+                name: object.name,
+                price: price,
+                gain: gain,
+                score: gain / price
+            });
+        }
+    }
+
+    if (Game.UpgradesInStore) {
+        for (let j = 0; j < Game.UpgradesInStore.length; j++) {
+            let upgrade = Game.UpgradesInStore[j];
+            if (!CCAutomated.canBuyUpgrade(upgrade)) continue;
+
+            let upgradePrice = CCAutomated.getUpgradePrice(upgrade);
+            if (!isFinite(upgradePrice) || upgradePrice <= 0 || upgradePrice > cookies) continue;
+
+            let upgradeGain = CCAutomated.estimateUpgradeCpsGain(upgrade);
+            if (upgradeGain <= 0) continue;
+
+            candidates.push({
+                type: 'upgrade',
+                item: upgrade,
+                name: upgrade.name,
+                price: upgradePrice,
+                gain: upgradeGain,
+                score: upgradeGain / upgradePrice
+            });
+        }
+    }
+
+    return candidates;
+};
+
+CCAutomated.getBestAutoBuyerCandidate = function() {
+    let candidates = CCAutomated.getAutoBuyerCandidates();
+    let best = null;
+
+    for (let i = 0; i < candidates.length; i++) {
+        if (!best || candidates[i].score > best.score) best = candidates[i];
+    }
+
+    return best;
+};
+
+CCAutomated.buyAutoBuyerCandidate = function(candidate) {
+    if (!candidate) return false;
+
+    try {
+        if (candidate.type === 'building' && candidate.item && typeof candidate.item.buy === 'function') {
+            candidate.item.buy(1);
+            return true;
+        }
+        if (candidate.type === 'upgrade' && candidate.item && typeof candidate.item.buy === 'function') {
+            candidate.item.buy();
+            return true;
+        }
+    } catch (e) {
+        console.warn('[CCAutomated] Failed to auto-buy', candidate.name, e);
+    }
+
+    return false;
+};
+
+// Handle buying the best affordable building or upgrade
+CCAutomated.handleAutoBuyer = function() {
+    if (CCAutomated.Config.AutoBuyer === 0) return;
+
+    let candidate = CCAutomated.getBestAutoBuyerCandidate();
+    CCAutomated.buyAutoBuyerCandidate(candidate);
+};
+
 CCAutomated.stop = function() {
     for (let key in CCAutomated.Intervals) {
         clearInterval(CCAutomated.Intervals[key]);
@@ -235,6 +406,7 @@ CCAutomated.start = function() {
     CCAutomated.Intervals.goldenCookieClicker = setInterval(CCAutomated.handleGoldenCookies, CCAutomated.IntervalMs.goldenCookieClicker);
     CCAutomated.Intervals.wrinklerClicker = setInterval(CCAutomated.handleWrinklers, CCAutomated.IntervalMs.wrinklerClicker);
     CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, CCAutomated.IntervalMs.grimoire);
+    CCAutomated.Intervals.autoBuyer = setInterval(CCAutomated.handleAutoBuyer, CCAutomated.IntervalMs.autoBuyer);
 };
 
 // Start Cookie Clicker Automated
