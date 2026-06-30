@@ -988,25 +988,35 @@ CCAutomated.getAutoBuyerStoreSignature = function () {
   return storeSignature;
 };
 
-CCAutomated.formatAutoBuyerTime = function (seconds) {
-  if (!isFinite(seconds) || seconds <= 0) return "now";
-  if (seconds < 60) return Math.ceil(seconds) + "s";
-  if (seconds < 3600) return Math.ceil(seconds / 60) + "m";
-  return Math.ceil(seconds / 3600) + "h";
-};
-
-CCAutomated.formatAutoBuyerDuration = function (seconds) {
+CCAutomated.formatDuration = function (seconds) {
   if (!isFinite(seconds) || seconds <= 0) return "now";
 
   seconds = Math.ceil(seconds);
-  let hours = Math.floor(seconds / 3600);
-  let minutes = Math.floor((seconds % 3600) / 60);
-  let remainingSeconds = seconds % 60;
+  let units = [
+    { label: "y", seconds: 365 * 24 * 60 * 60 },
+    { label: "m", seconds: 30 * 24 * 60 * 60 },
+    { label: "d", seconds: 24 * 60 * 60 },
+    { label: "h", seconds: 60 * 60 },
+    { label: "m", seconds: 60 },
+    { label: "s", seconds: 1 },
+  ];
   let parts = [];
+  let firstUnitIndex = units.length - 1;
 
-  if (hours) parts.push(hours + "h");
-  if (minutes || hours) parts.push(minutes + "m");
-  parts.push(remainingSeconds + "s");
+  for (let i = 0; i < units.length; i++) {
+    if (seconds >= units[i].seconds) {
+      firstUnitIndex = i;
+      break;
+    }
+  }
+
+  let lastUnitIndex = Math.min(firstUnitIndex + 2, units.length - 1);
+
+  for (let i = firstUnitIndex; i <= lastUnitIndex; i++) {
+    let amount = Math.floor(seconds / units[i].seconds);
+    parts.push(amount + units[i].label);
+    seconds -= amount * units[i].seconds;
+  }
 
   return parts.join(" ");
 };
@@ -1089,7 +1099,7 @@ CCAutomated.getAscensionStatus = function () {
   if (!isRecommended) {
     lines.push(
       CCAutomated.makeStatusLine("ETA", [
-        isFinite(waitSeconds) ? CCAutomated.formatAutoBuyerDuration(waitSeconds) : "Unknown",
+        isFinite(waitSeconds) ? CCAutomated.formatDuration(waitSeconds) : "Unknown",
       ]),
     );
   }
@@ -1378,7 +1388,7 @@ CCAutomated.getComboStatus = function () {
     CCAutomated.makeStatusLine("Status", [CCAutomated.getComboStatusText(combo)]),
     CCAutomated.makeStatusLine("Buffs", [combo.count + " active", CCAutomated.formatComboMultiplier(combo.multiplier)]),
     CCAutomated.makeStatusLine("Time", [
-      combo.secondsLeft > 0 ? CCAutomated.formatAutoBuyerDuration(combo.secondsLeft) : "No active combo",
+      combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) : "No active combo",
     ]),
     CCAutomated.makeStatusLine("Golden", [shimmerText]),
     CCAutomated.makeStatusLine("Bank", [
@@ -1556,7 +1566,7 @@ CCAutomated.getAutoBuyerStatus = function () {
   let canBuyNow = candidate.affordable && CCAutomated.canBuyDuringCombo(candidate);
   let isHoldingForCombo =
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
-  let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatAutoBuyerDuration(waitSeconds);
+  let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatDuration(waitSeconds);
   let gainText = displayGain > 0 ? "+" + CCAutomated.formatAutoBuyerNumber(displayGain) + " CpS" : "";
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
