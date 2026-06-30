@@ -675,6 +675,22 @@ CCAutomated.formatAutoBuyerTime = function (seconds) {
   return Math.ceil(seconds / 3600) + "h";
 };
 
+CCAutomated.formatAutoBuyerDuration = function (seconds) {
+  if (!isFinite(seconds) || seconds <= 0) return "now";
+
+  seconds = Math.ceil(seconds);
+  let hours = Math.floor(seconds / 3600);
+  let minutes = Math.floor((seconds % 3600) / 60);
+  let remainingSeconds = seconds % 60;
+  let parts = [];
+
+  if (hours) parts.push(hours + "h");
+  if (minutes || hours) parts.push(minutes + "m");
+  parts.push(remainingSeconds + "s");
+
+  return parts.join(" ");
+};
+
 CCAutomated.formatAutoBuyerNumber = function (value) {
   if (!isFinite(value)) return "?";
   if (typeof Beautify === "function") return Beautify(value);
@@ -911,6 +927,19 @@ CCAutomated.makeAutoBuyerStatusLine = function (label, parts) {
   };
 };
 
+CCAutomated.getAutoBuyerBankStatus = function () {
+  let manualReserve = CCAutomated.getAutoBuyerReserveCookies();
+  let strategicReserve = CCAutomated.getStrategicBankReserveCookies();
+  let totalReserve = manualReserve + strategicReserve;
+  let reasons = [];
+
+  if (manualReserve > 0) reasons.push("manual reserve");
+  if (strategicReserve > 0) reasons.push("lucky payouts");
+
+  if (totalReserve <= 0) return "Not keeping extra cookies";
+  return "Keeping " + CCAutomated.formatAutoBuyerNumber(totalReserve) + " for " + reasons.join(" and ");
+};
+
 CCAutomated.getAutoBuyerStatus = function () {
   if (CCAutomated.Config.AutoBuyer === 0) {
     return {
@@ -937,30 +966,23 @@ CCAutomated.getAutoBuyerStatus = function () {
   let cookiesPerSecond = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
   let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, spendableCookies, cookiesPerSecond);
   let displayGain = typeof candidate.realGain === "number" ? candidate.realGain : candidate.gain;
-  let payoffSeconds = displayGain > 0 ? candidate.price / displayGain : Infinity;
-  let action = candidate.affordable ? "Ready to buy" : "Waiting " + CCAutomated.formatAutoBuyerTime(waitSeconds);
-  let reserveSeconds = CCAutomated.getAutoBuyerReserveSeconds();
-  let strategyLabel = CCAutomated.ConfigData.AutoBuyerStrategy.label[CCAutomated.Config.AutoBuyerStrategy || 0];
+  let canBuyNow = candidate.affordable && CCAutomated.canBuyDuringCombo(candidate);
+  let isHoldingForCombo =
+    candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
+  let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatAutoBuyerDuration(waitSeconds);
   let gainText = displayGain > 0 ? "+" + CCAutomated.formatAutoBuyerNumber(displayGain) + " CpS" : "";
-  let payoffText = displayGain > 0 ? "Pays off in " + CCAutomated.formatAutoBuyerTime(payoffSeconds) : "";
-  let thresholdText = candidate.threshold ? "Building milestone " + candidate.threshold : "";
-  let priorityText = candidate.priority || "";
-  let reserveText = reserveSeconds ? "Manual reserve " + CCAutomated.formatAutoBuyerTime(reserveSeconds) : "";
-  let bankReserve = CCAutomated.getStrategicBankReserveCookies();
-  let bankText = bankReserve ? "Lucky bank " + CCAutomated.formatAutoBuyerNumber(bankReserve) : "";
-  let comboText =
-    CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate) ? "Holding for combo payout" : "";
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
+  if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
-    CCAutomated.makeAutoBuyerStatusLine("Status", [action, candidate.type]),
-    CCAutomated.makeAutoBuyerStatusLine("Plan", ["Strategy " + strategyLabel, thresholdText, priorityText]),
-    CCAutomated.makeAutoBuyerStatusLine("Value", [gainText, payoffText]),
-    CCAutomated.makeAutoBuyerStatusLine("Bank", [reserveText, bankText, comboText]),
+    CCAutomated.makeAutoBuyerStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
+    CCAutomated.makeAutoBuyerStatusLine("Value", [gainText]),
+    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
+    CCAutomated.makeAutoBuyerStatusLine("Bank", [CCAutomated.getAutoBuyerBankStatus()]),
   ];
 
   return {
-    title: "Auto-buyer target: " + candidate.name,
+    title: "Auto-buyer",
     lines: lines.filter(function (line) {
       return line;
     }),
