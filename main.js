@@ -33,6 +33,9 @@ CCAutomated.Strategy = {
   strongBuffMultiplier: 10,
   hugeBuffMultiplier: 100,
   minStrategicUpgradeGainSeconds: 60,
+  firstAscendPrestigeTarget: 365,
+  repeatAscendPrestigeGainRatio: 0.1,
+  minRepeatAscendPrestigeGain: 100,
   priorityPatterns: [
     { pattern: /kitten/i, multiplier: 0.35, label: "kitten" },
     {
@@ -216,6 +219,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   for (let config in CCAutomated.ConfigDefault) {
     subsection.appendChild(listing(config));
   }
+  subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
 
   let menu = l("menu");
@@ -231,6 +235,40 @@ CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
   div.style.lineHeight = "140%";
 
   let status = CCAutomated.getAutoBuyerStatus();
+  let title = document.createElement("div");
+  title.style.fontWeight = "bold";
+  title.style.marginBottom = "2px";
+  title.textContent = status.title;
+  div.appendChild(title);
+
+  for (let i = 0; i < status.lines.length; i++) {
+    let line = document.createElement("div");
+    line.style.display = "grid";
+    line.style.gridTemplateColumns = "74px 1fr";
+    line.style.columnGap = "8px";
+
+    let label = document.createElement("span");
+    label.style.opacity = "0.7";
+    label.textContent = status.lines[i].label;
+    line.appendChild(label);
+
+    let value = document.createElement("span");
+    value.textContent = status.lines[i].value;
+    line.appendChild(value);
+
+    div.appendChild(line);
+  }
+
+  return div;
+};
+
+CCAutomated.ConfigDisplay.ascensionStatus = function () {
+  let div = document.createElement("div");
+  div.className = "listing";
+  div.style.opacity = "0.75";
+  div.style.lineHeight = "140%";
+
+  let status = CCAutomated.getAscensionStatus();
   let title = document.createElement("div");
   title.style.fontWeight = "bold";
   title.style.marginBottom = "2px";
@@ -724,6 +762,88 @@ CCAutomated.formatAutoBuyerNumber = function (value) {
   if (Math.abs(value) >= 1000) return Math.round(value).toLocaleString();
   if (Math.abs(value) >= 10) return Math.round(value).toString();
   return value.toFixed(2);
+};
+
+CCAutomated.getTotalCookiesBakedForPrestige = function () {
+  let cookiesReset = typeof Game.cookiesReset === "number" ? Game.cookiesReset : 0;
+  let cookiesEarned = typeof Game.cookiesEarned === "number" ? Game.cookiesEarned : 0;
+  return Math.max(0, cookiesReset + cookiesEarned);
+};
+
+CCAutomated.getPrestigeForCookies = function (cookies) {
+  if (typeof Game.HowMuchPrestige === "function") return Game.HowMuchPrestige(cookies);
+  if (typeof cookies !== "number" || cookies <= 0) return 0;
+  return Math.floor(Math.pow(cookies / 1000000000000, 1 / 3));
+};
+
+CCAutomated.getCookiesForPrestige = function (prestige) {
+  if (typeof Game.HowManyCookiesReset === "function") return Game.HowManyCookiesReset(prestige);
+  if (typeof prestige !== "number" || prestige <= 0) return 0;
+  return Math.pow(prestige, 3) * 1000000000000;
+};
+
+CCAutomated.getCurrentPrestige = function () {
+  if (typeof Game.prestige === "number") return Math.max(0, Math.floor(Game.prestige));
+  return CCAutomated.getPrestigeForCookies(typeof Game.cookiesReset === "number" ? Game.cookiesReset : 0);
+};
+
+CCAutomated.getPendingPrestigeGain = function () {
+  let potentialPrestige = CCAutomated.getPrestigeForCookies(CCAutomated.getTotalCookiesBakedForPrestige());
+  return Math.max(0, potentialPrestige - CCAutomated.getCurrentPrestige());
+};
+
+CCAutomated.getAscensionRecommendedPrestigeGain = function (currentPrestige) {
+  if (currentPrestige <= 0) return CCAutomated.Strategy.firstAscendPrestigeTarget;
+  return Math.max(
+    CCAutomated.Strategy.minRepeatAscendPrestigeGain,
+    Math.ceil(currentPrestige * CCAutomated.Strategy.repeatAscendPrestigeGainRatio),
+  );
+};
+
+CCAutomated.getAscensionStatus = function () {
+  let currentPrestige = CCAutomated.getCurrentPrestige();
+  let pendingPrestige = CCAutomated.getPendingPrestigeGain();
+  let targetGain = CCAutomated.getAscensionRecommendedPrestigeGain(currentPrestige);
+  let isRecommended = pendingPrestige >= targetGain;
+  let targetPrestige = currentPrestige + targetGain;
+  let targetCookies = CCAutomated.getCookiesForPrestige(targetPrestige);
+  let currentCookies = CCAutomated.getTotalCookiesBakedForPrestige();
+  let remainingCookies = Math.max(0, targetCookies - currentCookies);
+  let cookiesPerSecond = CCAutomated.getBaseCookiesPerSecond();
+  let waitSeconds = cookiesPerSecond > 0 ? remainingCookies / cookiesPerSecond : Infinity;
+  let gainRatio = currentPrestige > 0 ? pendingPrestige / currentPrestige : 0;
+  let ruleText =
+    currentPrestige <= 0
+      ? "First ascension at +" + CCAutomated.formatAutoBuyerNumber(targetGain)
+      : "Next at +" + CCAutomated.formatAutoBuyerNumber(targetGain) + " prestige";
+  let statusText = isRecommended
+    ? "Ascend now"
+    : "Wait for +" + CCAutomated.formatAutoBuyerNumber(targetGain) + " prestige";
+  let rewardText =
+    "+" +
+    CCAutomated.formatAutoBuyerNumber(pendingPrestige) +
+    (currentPrestige > 0 ? " prestige (" + Math.floor(gainRatio * 100) + "%)" : " prestige");
+
+  let lines = [
+    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
+    CCAutomated.makeAutoBuyerStatusLine("Reward", [rewardText]),
+    CCAutomated.makeAutoBuyerStatusLine("Target", [ruleText]),
+  ];
+
+  if (!isRecommended) {
+    lines.push(
+      CCAutomated.makeAutoBuyerStatusLine("ETA", [
+        isFinite(waitSeconds) ? CCAutomated.formatAutoBuyerDuration(waitSeconds) : "Unknown",
+      ]),
+    );
+  }
+
+  return {
+    title: "Ascension",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
 };
 
 CCAutomated.estimateBuildingCpsGain = function (object) {

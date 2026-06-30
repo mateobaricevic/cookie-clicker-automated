@@ -3,6 +3,7 @@
 Cookie Clicker Automated is an addon for the [Cookie Clicker](https://orteil.dashnet.org/cookieclicker/) game.
 It can automate clicking the Big Cookie, popping Golden Cookies, popping Wrinklers, and using selected Grimoire spells.
 It can also auto-buy or save for the best building or upgrade based on estimated payoff time.
+It shows an ascension recommendation in the settings menu so you can see when a reset is worth considering.
 
 ## Bookmarklet
 
@@ -21,6 +22,7 @@ javascript: (function () {
 - Wrinkler popping automation.
 - Wizard tower Grimoire automation for selected spell timing.
 - Auto-buyer that can save for higher-value buildings or upgrades.
+- Ascension recommendation status.
 - Preferences menu entries inside Cookie Clicker's settings menu.
 
 ## Auto-Buyer
@@ -48,6 +50,12 @@ The current target is cached so the addon can check affordability every second w
 The settings menu shows the current auto-buyer target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, active strategy, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
 
 It skips debug, prestige, and toggle upgrades.
+
+## Ascension
+
+The settings menu shows whether you should ascend now, how many prestige levels you would gain, and an ETA for reaching the recommendation.
+
+The addon recommends the first ascension at `+365` prestige levels. After that, it recommends ascending when the pending prestige gain is at least `10%` of your current prestige level, with a minimum of `+100` prestige levels.
 
 ## Grimoire
 
