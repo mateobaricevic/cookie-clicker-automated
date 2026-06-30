@@ -480,17 +480,12 @@ CCAutomated.getBigCookieCenter = function () {
 };
 
 CCAutomated.clickBigCookie = function () {
-  let cookieCenter = CCAutomated.getBigCookieCenter();
-  if (cookieCenter) {
-    Game.mouseX = cookieCenter.x;
-    Game.mouseY = cookieCenter.y;
-  }
-
   if (typeof Game.ClickCookie === "function") {
     Game.ClickCookie();
     return;
   }
 
+  let cookieCenter = CCAutomated.getBigCookieCenter();
   if (cookieCenter && typeof cookieCenter.element.dispatchEvent === "function") {
     cookieCenter.element.dispatchEvent(
       new MouseEvent("click", {
