@@ -152,7 +152,7 @@ CCAutomated.ConfigData.AutoBuyer = {
       buildingThresholdScoreMultiplier: 1,
       majorBuildingThresholdScoreMultiplier: 0.9,
       allowSaving: true,
-      luckyBankRatio: 0.25,
+      luckyBankRatio: 0,
     },
     {
       maxWaitSeconds: 600,

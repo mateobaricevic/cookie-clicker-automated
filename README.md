@@ -42,12 +42,12 @@ To avoid saving forever, the buyer prefers targets that are affordable or within
 
 The auto-buyer setting controls both whether buying is active and how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, `Long` is more willing to save for better targets, and `Now` only buys the best currently affordable target.
 
-The buyer keeps part of a Lucky-compatible cookie bank. `ROI` keeps only a small bank, `Balanced` keeps a larger one, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
+The buyer keeps part of a Lucky-compatible cookie bank in the more patient modes. `ROI` spends aggressively and does not reserve extra cookies for Lucky payouts, `Balanced` keeps a meaningful bank, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
 
 Recommended mode:
 
 - `Balanced` is the best all-purpose default. It preserves a meaningful Lucky bank, waits for better-value purchases, and avoids spending too eagerly.
-- `ROI` is best for fast, aggressive early-game growth when banking matters less.
+- `ROI` is best for fast, aggressive growth when banking matters less.
 - `Long` is best in mid or late game when you want the buyer to wait for higher-value targets while protecting the full Lucky bank.
 - `Now` is best only when you want immediate spending on the best currently affordable option.
 
