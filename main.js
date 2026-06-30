@@ -145,35 +145,25 @@ CCAutomated.ConfigData.Season = {
 };
 CCAutomated.ConfigData.AutoBuyer = {
   name: "Auto-buyer",
-  label: ["OFF", "ROI", "Balanced", "Long", "Now"],
+  label: ["OFF", "ROI", "Balanced", "Long"],
   strategy: [
     {
       maxWaitSeconds: 300,
       buildingThresholdScoreMultiplier: 1,
       majorBuildingThresholdScoreMultiplier: 0.9,
-      allowSaving: true,
       luckyBankRatio: 0,
     },
     {
       maxWaitSeconds: 600,
       buildingThresholdScoreMultiplier: 0.8,
       majorBuildingThresholdScoreMultiplier: 0.65,
-      allowSaving: true,
       luckyBankRatio: 0.5,
     },
     {
       maxWaitSeconds: 1800,
       buildingThresholdScoreMultiplier: 0.7,
       majorBuildingThresholdScoreMultiplier: 0.5,
-      allowSaving: true,
       luckyBankRatio: 1,
-    },
-    {
-      maxWaitSeconds: 0,
-      buildingThresholdScoreMultiplier: 0.9,
-      majorBuildingThresholdScoreMultiplier: 0.8,
-      allowSaving: false,
-      luckyBankRatio: 0,
     },
   ],
   description: "buy or save for the best building or upgrade",
@@ -1584,7 +1574,6 @@ CCAutomated.getBestAutoBuyerCandidate = function () {
       bestWithinWait = candidates[i];
   }
 
-  if (!strategy.allowSaving) return bestAffordable || best;
   return bestWithinWait || bestAffordable || best;
 };
 
@@ -2004,7 +1993,7 @@ CCAutomated.getAutoBuyerStatus = function () {
       lines: [
         {
           label: "Status",
-          value: CCAutomated.getAutoBuyerStrategy().allowSaving ? "Scanning for target" : "No affordable target",
+          value: "Scanning for target",
         },
       ].filter(function (line) {
         return line;
@@ -2021,9 +2010,6 @@ CCAutomated.getAutoBuyerStatus = function () {
   let isHoldingForCombo =
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
   let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatDuration(waitSeconds);
-  if (!CCAutomated.getAutoBuyerStrategy().allowSaving && !candidate.affordable) {
-    statusText = "Next target in " + CCAutomated.formatDuration(waitSeconds);
-  }
   let gainText = displayGain > 0 ? "+" + CCAutomated.formatNumber(displayGain) + " CpS" : "";
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
@@ -2050,7 +2036,6 @@ CCAutomated.shouldRefreshAutoBuyerTarget = function () {
   let previousCookiesPerSecond = CCAutomated.AutoBuyer.lastCookiesPerSecond;
 
   if (!CCAutomated.isAutoBuyerTargetValid(CCAutomated.AutoBuyer.target)) return true;
-  if (!CCAutomated.getAutoBuyerStrategy().allowSaving && !CCAutomated.AutoBuyer.target.affordable) return true;
   if (now - CCAutomated.AutoBuyer.lastRefresh >= CCAutomated.AutoBuyer.refreshMs) return true;
   if (storeSignature !== CCAutomated.AutoBuyer.lastStoreSignature) return true;
   if (previousCookiesPerSecond <= 0 && cookiesPerSecond > 0) return true;

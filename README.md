@@ -40,16 +40,15 @@ If the best-scoring option is not affordable yet, the addon waits instead of buy
 
 To avoid saving forever, the buyer prefers targets that are affordable or within about 10 minutes at base CpS. Temporary CpS buffs do not make the buyer chase a long-term target it could not normally afford soon.
 
-The auto-buyer setting controls both whether buying is active and how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, `Long` is more willing to save for better targets, and `Now` only buys the best currently affordable target.
+The auto-buyer setting controls both whether buying is active and how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, and `Long` is more willing to save for better targets.
 
-The buyer keeps part of a Lucky-compatible cookie bank in the more patient modes. `ROI` spends aggressively and does not reserve extra cookies for Lucky payouts, `Balanced` keeps a meaningful bank, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
+The buyer keeps part of a Lucky-compatible cookie bank in the more patient modes. `ROI` spends aggressively and does not reserve extra cookies for Lucky payouts, `Balanced` keeps a meaningful bank, and `Long` tries to preserve the full Lucky cap.
 
 Recommended mode:
 
 - `Balanced` is the best all-purpose default. It preserves a meaningful Lucky bank, waits for better-value purchases, and avoids spending too eagerly.
 - `ROI` is best for fast, aggressive growth when banking matters less.
 - `Long` is best in mid or late game when you want the buyer to wait for higher-value targets while protecting the full Lucky bank.
-- `Now` is best only when you want immediate spending on the best currently affordable option.
 
 For a safer default, use `Balanced` with `Buyer Reserve` set to `10 min`.
 
@@ -61,7 +60,7 @@ Strategic upgrades receive priority bonuses beyond raw immediate CpS, including 
 
 The auto-buyer reserve setting keeps an additional configurable cookie bank unspent. Reserve levels are based on base CpS, so a `10 min` reserve means the buyer behaves as though 10 minutes of base production is unavailable for purchases.
 
-The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, when base CpS changes noticeably, or while `Now` mode is waiting on an unaffordable preview target.
+The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, or when base CpS changes noticeably.
 
 The settings menu shows the current auto-buyer mode and target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
 
