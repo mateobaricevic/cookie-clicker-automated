@@ -13,6 +13,7 @@ Implemented areas:
 - Garden automation for freezing, unfreezing, soil switching, and harvesting mature Bakeberry, Queenbeet, and Duketater during strong combo windows.
 - Pantheon helper for Godzamok click-combo selling and Skruuia-aware Wrinkler popping.
 - Ascension status using a first-ascension target and repeat-ascension gain threshold.
+- Auto-buyer Planning v2 for buy-1, buy-10, and buy-100 building plans, batch milestone scoring, and top-plan status display.
 
 The project is now past the baseline automation phase. The highest-value work should improve decision quality, surface richer planning data, and add safety checks around irreversible or high-cost actions.
 
@@ -27,24 +28,16 @@ The project is now past the baseline automation phase. The highest-value work sh
 
 ## Best Next Improvement
 
-Implement **Auto-buyer Planning v2** next.
+Implement **Auto-buyer chain planning** next.
 
 Why this should come before Stock Market automation:
 
 - It improves every run, even before Bank level 1 or active Stock Market play.
 - The current buyer already has the needed foundation: payoff scoring, reserves, combo safety, strategic priorities, and status display.
-- The biggest known weakness is clear in the source: candidates represent only a single building or upgrade. That misses buy-10/buy-100 efficiency and prerequisite chains that unlock strong follow-up upgrades.
+- The remaining known weakness is prerequisite chains that unlock strong follow-up upgrades.
 - It aligns with proven addon ideas from Cookie Monster and Frozen Cookies without needing to copy their code or UI.
 
-Scope for the first implementation:
-
-- Add building batch candidates for buy-10 and buy-100 when affordable or within the selected wait window.
-- Estimate batch price from Cookie Clicker's own price helpers where available, falling back to cumulative single-price simulation only if needed.
-- Estimate batch CpS gain by temporarily adding the batch amount, recalculating gains, then restoring state.
-- Display the top 3 candidates in the Auto-buyer status panel with wait time, payoff time, type, and priority tag.
-- Keep current reserve and combo-payout safety rules for every candidate.
-
-Follow-up scope:
+Scope for the chain implementation:
 
 - Detect upgrade chains where buying buildings to a threshold unlocks a high-priority upgrade.
 - Score the chain as one plan while buying the next prerequisite step.
@@ -53,7 +46,7 @@ Follow-up scope:
 
 ## Suggested Implementation Order
 
-1. Auto-buyer Planning v2: buy-10/buy-100 candidates, top candidate list, clearer payoff/status reporting.
+1. Done: Auto-buyer Planning v2: buy-10/buy-100 candidates, top candidate list, clearer payoff/status reporting.
 2. Auto-buyer chain planning: building thresholds, upgrade unlock prerequisites, and strategic chain target display.
 3. Ascension checklist: pre-ascend safety panel for Wrinklers, Garden harvests, Chocolate Egg, permanent upgrade slot suggestions, lucky-prestige digits, and save export.
 4. Stock Market advisor: read-only dashboard with resting values, buy/sell bands, broker overhead, capacity, profit progress, and loan readiness.

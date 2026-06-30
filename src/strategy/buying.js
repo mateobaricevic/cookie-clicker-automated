@@ -41,6 +41,50 @@ CCAutomated.getObjectPrice = function (object) {
   return Infinity;
 };
 
+CCAutomated.getBuildingBatchPrice = function (object, amount) {
+  amount = Math.max(1, Math.floor(amount || 1));
+  if (!object) return Infinity;
+  if (amount === 1) return CCAutomated.getObjectPrice(object);
+
+  if (typeof object.getSumPrice === "function") {
+    try {
+      let price = object.getSumPrice(amount);
+      if (isFinite(price) && price > 0) return price;
+    } catch (e) {
+      console.warn("[CCAutomated] Failed to use building batch price helper", object.name, e);
+    }
+  }
+
+  if (typeof object.amount !== "number") {
+    let price = CCAutomated.getObjectPrice(object);
+    return isFinite(price) ? price * amount : Infinity;
+  }
+
+  let originalAmount = object.amount;
+  let originalBought = object.bought;
+  let originalPrice = object.price;
+  let total = 0;
+
+  try {
+    for (let i = 0; i < amount; i++) {
+      let price = CCAutomated.getObjectPrice(object);
+      if (!isFinite(price) || price <= 0) return Infinity;
+      total += price;
+      object.amount += 1;
+      if (typeof object.bought === "number") object.bought += 1;
+    }
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to estimate building batch price", object.name, e);
+    total = Infinity;
+  } finally {
+    object.amount = originalAmount;
+    if (typeof originalBought !== "undefined") object.bought = originalBought;
+    if (typeof originalPrice !== "undefined") object.price = originalPrice;
+  }
+
+  return Math.ceil(total);
+};
+
 CCAutomated.getUpgradePrice = function (upgrade) {
   if (!upgrade) return Infinity;
   if (typeof upgrade.getPrice === "function") return upgrade.getPrice();
@@ -96,13 +140,23 @@ CCAutomated.getAutoBuyerScore = function (price, gain, cookies, cookiesPerSecond
   return waitSeconds + price / gain;
 };
 
-CCAutomated.getAutoBuyerBuildingThreshold = function (object) {
+CCAutomated.getAutoBuyerBuildingThreshold = function (object, amount) {
   if (!object || typeof object.amount !== "number") return null;
 
-  let nextAmount = object.amount + 1;
-  if (nextAmount < 10) return null;
-  if (nextAmount === 10 || nextAmount === 25 || nextAmount % 50 === 0) return nextAmount;
-  return null;
+  amount = Math.max(1, Math.floor(amount || 1));
+  let endAmount = object.amount + amount;
+  let threshold = null;
+  let majorThreshold = null;
+
+  for (let nextAmount = object.amount + 1; nextAmount <= endAmount; nextAmount++) {
+    if (nextAmount < 10) continue;
+    if (nextAmount === 10 || nextAmount === 25 || nextAmount % 50 === 0) {
+      if (nextAmount % 100 === 0) majorThreshold = nextAmount;
+      else threshold = nextAmount;
+    }
+  }
+
+  return majorThreshold || threshold;
 };
 
 CCAutomated.getAutoBuyerBuildingThresholdScoreMultiplier = function (threshold) {
@@ -122,6 +176,13 @@ CCAutomated.getAutoBuyerCandidateId = function (type, item) {
   if (!item) return type + ":unknown";
   if (typeof item.id !== "undefined") return type + ":" + item.id;
   return type + ":" + item.name;
+};
+
+CCAutomated.getAutoBuyerBuildingPlanLabel = function (object, amount) {
+  amount = Math.max(1, Math.floor(amount || 1));
+  if (!object || !object.name) return "Unknown building";
+  if (amount === 1) return object.name;
+  return object.name + " x" + amount;
 };
 
 CCAutomated.getAutoBuyerStoreSignature = function () {
@@ -151,17 +212,18 @@ CCAutomated.getAutoBuyerStoreSignature = function () {
 };
 
 
-CCAutomated.estimateBuildingCpsGain = function (object) {
+CCAutomated.estimateBuildingCpsGain = function (object, amount) {
   if (!object || typeof object.amount !== "number") return 0;
 
+  amount = Math.max(1, Math.floor(amount || 1));
   let originalAmount = object.amount;
   let originalBought = object.bought;
   let originalCps = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
   let gain = 0;
 
   try {
-    object.amount += 1;
-    if (typeof object.bought === "number") object.bought += 1;
+    object.amount += amount;
+    if (typeof object.bought === "number") object.bought += amount;
     CCAutomated.recalculateGains();
     gain = CCAutomated.getAutoBuyerPlanningCookiesPerSecond() - originalCps;
   } catch (e) {
@@ -173,6 +235,42 @@ CCAutomated.estimateBuildingCpsGain = function (object) {
   }
 
   return Math.max(0, gain);
+};
+
+CCAutomated.getAutoBuyerBuildingCandidate = function (object, amount, spendableCookies, cookiesPerSecond) {
+  amount = Math.max(1, Math.floor(amount || 1));
+  let price = CCAutomated.getBuildingBatchPrice(object, amount);
+  if (!isFinite(price) || price <= 0) return null;
+
+  let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(price, spendableCookies, cookiesPerSecond);
+  if (amount > 1 && price > spendableCookies && waitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds)
+    return null;
+
+  let gain = CCAutomated.estimateBuildingCpsGain(object, amount);
+  if (gain <= 0) return null;
+
+  let score = CCAutomated.getAutoBuyerScore(price, gain, spendableCookies, cookiesPerSecond);
+  if (!isFinite(score)) return null;
+  let threshold = CCAutomated.getAutoBuyerBuildingThreshold(object, amount);
+  score *= CCAutomated.getAutoBuyerBuildingThresholdScoreMultiplier(threshold);
+
+  return {
+    type: "building",
+    id: CCAutomated.getAutoBuyerCandidateId("building", object) + ":x" + amount,
+    item: object,
+    name: object.name,
+    planLabel: CCAutomated.getAutoBuyerBuildingPlanLabel(object, amount),
+    amount: amount,
+    price: price,
+    gain: gain,
+    realGain: gain,
+    affordable: price <= spendableCookies,
+    threshold: threshold,
+    priority: threshold ? "milestone" : "",
+    waitSeconds: waitSeconds,
+    payoffSeconds: price / gain,
+    score: score,
+  };
 };
 
 CCAutomated.estimateUpgradeCpsGain = function (upgrade) {
@@ -205,32 +303,17 @@ CCAutomated.getAutoBuyerCandidates = function () {
   if (Game.ObjectsById) {
     for (let i = 0; i < Game.ObjectsById.length; i++) {
       let object = Game.ObjectsById[i];
-      let price = CCAutomated.getObjectPrice(object);
-      if (!isFinite(price) || price <= 0) continue;
+      let amounts = [1, 10, 100];
 
-      let gain = CCAutomated.estimateBuildingCpsGain(object);
-      if (gain <= 0) continue;
-
-      let score = CCAutomated.getAutoBuyerScore(price, gain, spendableCookies, cookiesPerSecond);
-      if (!isFinite(score)) continue;
-      let threshold = CCAutomated.getAutoBuyerBuildingThreshold(object);
-      score *= CCAutomated.getAutoBuyerBuildingThresholdScoreMultiplier(threshold);
-      let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(price, spendableCookies, cookiesPerSecond);
-
-      candidates.push({
-        type: "building",
-        id: CCAutomated.getAutoBuyerCandidateId("building", object),
-        item: object,
-        name: object.name,
-        price: price,
-        gain: gain,
-        realGain: gain,
-        affordable: price <= spendableCookies,
-        threshold: threshold,
-        priority: threshold ? "milestone" : "",
-        waitSeconds: waitSeconds,
-        score: score,
-      });
+      for (let amountIndex = 0; amountIndex < amounts.length; amountIndex++) {
+        let candidate = CCAutomated.getAutoBuyerBuildingCandidate(
+          object,
+          amounts[amountIndex],
+          spendableCookies,
+          cookiesPerSecond,
+        );
+        if (candidate) candidates.push(candidate);
+      }
     }
   }
 
@@ -259,12 +342,15 @@ CCAutomated.getAutoBuyerCandidates = function () {
         id: CCAutomated.getAutoBuyerCandidateId("upgrade", upgrade),
         item: upgrade,
         name: upgrade.name,
+        planLabel: upgrade.name,
+        amount: 1,
         price: upgradePrice,
         gain: upgradeGain,
         realGain: realUpgradeGain,
         affordable: upgradePrice <= spendableCookies,
         priority: priority.label,
         waitSeconds: upgradeWaitSeconds,
+        payoffSeconds: upgradePrice / upgradeGain,
         score: upgradeScore,
       });
     }
@@ -273,8 +359,13 @@ CCAutomated.getAutoBuyerCandidates = function () {
   return candidates;
 };
 
-CCAutomated.getBestAutoBuyerCandidate = function () {
-  let candidates = CCAutomated.getAutoBuyerCandidates();
+CCAutomated.getRankedAutoBuyerCandidates = function (candidates) {
+  return candidates.slice().sort(function (a, b) {
+    return a.score - b.score;
+  });
+};
+
+CCAutomated.selectAutoBuyerCandidate = function (candidates) {
   let strategy = CCAutomated.getAutoBuyerStrategy();
   let best = null;
   let bestAffordable = null;
@@ -293,6 +384,19 @@ CCAutomated.getBestAutoBuyerCandidate = function () {
   }
 
   return bestWithinWait || bestAffordable || best;
+};
+
+CCAutomated.getAutoBuyerCandidateSelection = function () {
+  let candidates = CCAutomated.getAutoBuyerCandidates();
+
+  return {
+    target: CCAutomated.selectAutoBuyerCandidate(candidates),
+    candidates: CCAutomated.getRankedAutoBuyerCandidates(candidates),
+  };
+};
+
+CCAutomated.getBestAutoBuyerCandidate = function () {
+  return CCAutomated.getAutoBuyerCandidateSelection().target;
 };
 
 CCAutomated.isAutoBuyerTargetValid = function (candidate) {
@@ -314,7 +418,7 @@ CCAutomated.updateAutoBuyerTargetPrice = function (candidate) {
   let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
   let spendableCookies = CCAutomated.getAutoBuyerSpendableCookies(cookies);
   if (candidate.type === "building") {
-    candidate.price = CCAutomated.getObjectPrice(candidate.item);
+    candidate.price = CCAutomated.getBuildingBatchPrice(candidate.item, candidate.amount);
   } else if (candidate.type === "upgrade") {
     candidate.price = CCAutomated.getUpgradePrice(candidate.item);
   }
@@ -325,6 +429,7 @@ CCAutomated.updateAutoBuyerTargetPrice = function (candidate) {
     spendableCookies,
     CCAutomated.getAutoBuyerPlanningCookiesPerSecond(),
   );
+  if (candidate.gain > 0) candidate.payoffSeconds = candidate.price / candidate.gain;
   return candidate;
 };
 

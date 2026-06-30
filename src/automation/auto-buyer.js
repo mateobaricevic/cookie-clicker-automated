@@ -19,7 +19,9 @@ CCAutomated.shouldRefreshAutoBuyerTarget = function () {
 };
 
 CCAutomated.refreshAutoBuyerTarget = function () {
-  CCAutomated.AutoBuyer.target = CCAutomated.getBestAutoBuyerCandidate();
+  let selection = CCAutomated.getAutoBuyerCandidateSelection();
+  CCAutomated.AutoBuyer.target = selection.target;
+  CCAutomated.AutoBuyer.candidates = selection.candidates.slice(0, 3);
   CCAutomated.AutoBuyer.lastRefresh = Date.now();
   CCAutomated.AutoBuyer.lastCookiesPerSecond = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
   CCAutomated.AutoBuyer.lastStoreSignature = CCAutomated.getAutoBuyerStoreSignature();
@@ -31,10 +33,12 @@ CCAutomated.buyAutoBuyerCandidate = function (candidate) {
 
   try {
     if (candidate.type === "building" && candidate.item && typeof candidate.item.buy === "function") {
-      if (CCAutomated.getObjectPrice(candidate.item) > CCAutomated.getAutoBuyerSpendableCookies(Game.cookies))
-        return false;
+      let amount = Math.max(1, Math.floor(candidate.amount || 1));
+      candidate.price = CCAutomated.getBuildingBatchPrice(candidate.item, amount);
+      candidate.affordable = candidate.price <= CCAutomated.getAutoBuyerSpendableCookies(Game.cookies);
+      if (!candidate.affordable) return false;
       if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
-      candidate.item.buy(1);
+      candidate.item.buy(amount);
       return true;
     }
     if (candidate.type === "upgrade" && candidate.item && typeof candidate.item.buy === "function") {

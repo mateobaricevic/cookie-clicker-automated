@@ -17,6 +17,7 @@ CCAutomated.IntervalMs = {
 };
 CCAutomated.AutoBuyer = {
   target: null,
+  candidates: [],
   lastRefresh: 0,
   lastCookiesPerSecond: 0,
   lastStoreSignature: "",

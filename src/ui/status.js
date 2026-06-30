@@ -156,6 +156,36 @@ CCAutomated.getAutoBuyerBankStatus = function () {
   return "Keeping " + CCAutomated.formatNumber(totalReserve) + " for " + reasons.join(" and ");
 };
 
+CCAutomated.getAutoBuyerCandidateTypeText = function (candidate) {
+  if (!candidate) return "";
+  if (candidate.type !== "building") return candidate.type;
+
+  let amount = Math.max(1, Math.floor(candidate.amount || 1));
+  if (amount === 1) return "building";
+  return "building x" + amount;
+};
+
+CCAutomated.getAutoBuyerCandidatePriorityText = function (candidate) {
+  if (!candidate) return "";
+  if (candidate.threshold) return "milestone " + candidate.threshold;
+  return candidate.priority || "";
+};
+
+CCAutomated.formatAutoBuyerCandidatePlan = function (candidate) {
+  if (!candidate || !CCAutomated.isAutoBuyerTargetValid(candidate)) return "";
+
+  candidate = CCAutomated.updateAutoBuyerTargetPrice(candidate);
+  if (!candidate) return "";
+
+  return CCAutomated.joinStatusParts([
+    candidate.planLabel || candidate.name,
+    "wait " + CCAutomated.formatDuration(candidate.waitSeconds),
+    candidate.payoffSeconds > 0 ? "payoff " + CCAutomated.formatDuration(candidate.payoffSeconds) : "",
+    CCAutomated.getAutoBuyerCandidateTypeText(candidate),
+    CCAutomated.getAutoBuyerCandidatePriorityText(candidate),
+  ]);
+};
+
 CCAutomated.getGardenActionText = function () {
   if (!CCAutomated.Garden.lastAction) return "";
   let ageSeconds = (Date.now() - CCAutomated.Garden.lastActionAt) / 1000;
@@ -376,15 +406,30 @@ CCAutomated.getAutoBuyerStatus = function () {
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
   let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatDuration(waitSeconds);
   let gainText = displayGain > 0 ? "+" + CCAutomated.formatNumber(displayGain) + " CpS" : "";
+  let targetTypeText = CCAutomated.getAutoBuyerCandidateTypeText(candidate);
+  let priorityText = CCAutomated.getAutoBuyerCandidatePriorityText(candidate);
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
     CCAutomated.makeStatusLine("Status", [statusText]),
-    CCAutomated.makeStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
-    CCAutomated.makeStatusLine("Value", [gainText]),
+    CCAutomated.makeStatusLine("Target", [(candidate.planLabel || candidate.name) + " (" + targetTypeText + ")"]),
+    CCAutomated.makeStatusLine("Value", [
+      gainText,
+      candidate.payoffSeconds > 0 ? "payoff " + CCAutomated.formatDuration(candidate.payoffSeconds) : "",
+      priorityText,
+    ]),
     CCAutomated.makeStatusLine("Bank", [CCAutomated.getAutoBuyerBankStatus()]),
   ];
+
+  let topCandidates = CCAutomated.AutoBuyer.candidates || [];
+  for (let i = 0; i < topCandidates.length; i++) {
+    lines.splice(
+      lines.length - 1,
+      0,
+      CCAutomated.makeStatusLine("Plan " + (i + 1), [CCAutomated.formatAutoBuyerCandidatePlan(topCandidates[i])]),
+    );
+  }
 
   return {
     title: "Auto-buyer",
