@@ -86,30 +86,37 @@ CCAutomated.ConfigDefault = {
 };
 
 CCAutomated.ConfigData.AutoClicker = {
+  name: "Big Cookie",
   label: ["OFF", "ON"],
-  description: "Auto-clicker for the Big Cookie",
+  description: "auto-click the main cookie",
 };
 CCAutomated.ConfigData.GoldenCookies = {
+  name: "Golden Cookies",
   label: ["OFF", "ON"],
-  description: "Auto-clicker for Golden Cookies",
+  description: "auto-click golden cookies and ticker fortune effects",
 };
 CCAutomated.ConfigData.Wrinklers = {
+  name: "Wrinklers",
   label: ["OFF", "ON"],
-  description: "Auto-clicker for Wrinklers",
+  description: "pop wrinklers on a timed strategy",
 };
 CCAutomated.ConfigData.Grimoire = {
+  name: "Grimoire",
   label: ["OFF", "ON"],
-  description: "Automated use of spells from Wizard Towers: Grimoire",
+  description: "cast wizard tower spells during combo windows",
 };
 CCAutomated.ConfigData.Garden = {
+  name: "Garden",
   label: ["OFF", "Harvest", "Manage"],
-  description: "Garden automation for combo harvests, freezing, and soil choice",
+  description: "harvest combo plants, freeze safely, and manage soil",
 };
 CCAutomated.ConfigData.AutoBuyer = {
+  name: "Auto-buyer",
   label: ["OFF", "ON"],
-  description: "Auto-buy or save for the best building or upgrade by estimated payoff time",
+  description: "buy or save for the best building or upgrade",
 };
 CCAutomated.ConfigData.AutoBuyerStrategy = {
+  name: "Buyer Strategy",
   label: ["ROI", "Balanced", "Long", "Now"],
   strategy: [
     {
@@ -141,12 +148,13 @@ CCAutomated.ConfigData.AutoBuyerStrategy = {
       luckyBankRatio: 0,
     },
   ],
-  description: "Auto-buyer strategy",
+  description: "choose how patient the auto-buyer should be",
 };
 CCAutomated.ConfigData.AutoBuyerReserve = {
+  name: "Buyer Reserve",
   label: ["OFF", "5 min", "10 min", "30 min", "1 hour"],
   reserveSeconds: [0, 300, 600, 1800, 3600],
-  description: "Cookie bank reserved from auto-buyer spending",
+  description: "keep this much base CpS banked before spending",
 };
 
 CCAutomated.restoreDefaultConfig = function () {
@@ -204,6 +212,13 @@ CCAutomated.isConfigEntryOff = function (config) {
   return CCAutomated.Config[config] === 0 && CCAutomated.ConfigData[config].label[0] === "OFF";
 };
 
+CCAutomated.getConfigDisplayLabel = function (config) {
+  let data = CCAutomated.ConfigData[config];
+  if (!data) return config;
+  if (data.name && data.description) return data.name + " - " + data.description;
+  return data.name || data.description || config;
+};
+
 CCAutomated.ConfigDisplay.displayMenu = function () {
   let frag = document.createDocumentFragment();
   let subsection = document.createElement("div");
@@ -228,7 +243,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
     a.textContent = CCAutomated.ConfigData[config].label[CCAutomated.Config[config]];
     div.appendChild(a);
     let label = document.createElement("label");
-    label.textContent = CCAutomated.ConfigData[config].description;
+    label.textContent = CCAutomated.getConfigDisplayLabel(config);
     div.appendChild(label);
     return div;
   };
