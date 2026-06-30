@@ -624,7 +624,8 @@ CCAutomated.getSeasonDropDefinitions = function (seasonName) {
   let definitions = [];
 
   for (let i = 0; i < CCAutomated.Season.dropDefinitions.length; i++) {
-    if (CCAutomated.Season.dropDefinitions[i].season === season) definitions.push(CCAutomated.Season.dropDefinitions[i]);
+    if (CCAutomated.Season.dropDefinitions[i].season === season)
+      definitions.push(CCAutomated.Season.dropDefinitions[i]);
   }
 
   return definitions;
@@ -1080,7 +1081,6 @@ CCAutomated.shouldSellWizardTowersForCombo = function (grimoire) {
   if (!Game.Objects["Wizard tower"] || Game.Objects["Wizard tower"].amount <= 30) return false;
   return grimoire && grimoire.magic > 30;
 };
-
 
 CCAutomated.getGrimoire = function () {
   let tower = Game.Objects && Game.Objects["Wizard tower"];
@@ -1682,7 +1682,6 @@ CCAutomated.getAutoBuyerStoreSignature = function () {
   return storeSignature;
 };
 
-
 CCAutomated.estimateBuildingCpsGain = function (object, amount) {
   if (!object || typeof object.amount !== "number") return 0;
 
@@ -1817,7 +1816,11 @@ CCAutomated.getAutoBuyerChainUpgradeRequirements = function (upgrade) {
   }
 
   return requirements.filter(function (requirement) {
-    return requirement.object && typeof requirement.object.amount === "number" && requirement.object.amount < requirement.targetAmount;
+    return (
+      requirement.object &&
+      typeof requirement.object.amount === "number" &&
+      requirement.object.amount < requirement.targetAmount
+    );
   });
 };
 
@@ -1848,7 +1851,8 @@ CCAutomated.getAutoBuyerChainCandidatesForUpgrade = function (upgrade, spendable
 
   let chainPrice = chainBuildingPrice + upgradePrice;
   let chainWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(chainPrice, spendableCookies, cookiesPerSecond);
-  if (chainPrice > spendableCookies && chainWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds) return candidates;
+  if (chainPrice > spendableCookies && chainWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds)
+    return candidates;
 
   let chainGain = CCAutomated.estimateAutoBuyerChainCpsGain(requirements, upgrade);
   let priority = CCAutomated.getUpgradePriority(upgrade);
@@ -2200,16 +2204,26 @@ CCAutomated.getAscensionRecommendedPrestigeGain = function (currentPrestige) {
 };
 
 CCAutomated.isAscensionUpgradeBought = function (name) {
-  let upgrade = CCAutomated.getUpgradeByName ? CCAutomated.getUpgradeByName(name) : Game.Upgrades && Game.Upgrades[name];
+  let upgrade = CCAutomated.getUpgradeByName
+    ? CCAutomated.getUpgradeByName(name)
+    : Game.Upgrades && Game.Upgrades[name];
   return !!(upgrade && upgrade.bought);
 };
 
 CCAutomated.getAscensionUpgradeCategory = function (targetPrestige) {
-  if (targetPrestige < CCAutomated.Strategy.firstAscendPrestigeTarget) return "Starter heavenly chips";
-  if (targetPrestige < 5000) return "Permanent slot, dragon, and season starters";
-  if (targetPrestige < 50000) return "Lucky, kitten, and milk upgrades";
-  if (targetPrestige < 1000000) return "Permanent slots and prestige scaling";
-  return "Late heavenly upgrades and prestige scaling";
+  if (targetPrestige < CCAutomated.Strategy.firstAscendPrestigeTarget) {
+    return "Build toward starter heavenly chips";
+  }
+  if (targetPrestige < 5000) {
+    return "Look for permanent upgrade slots, Krumblor, and season switchers";
+  }
+  if (targetPrestige < 50000) {
+    return "Look for Lucky upgrades, heavenly kittens, and milk upgrades";
+  }
+  if (targetPrestige < 1000000) {
+    return "Look for more permanent slots and prestige scaling";
+  }
+  return "Look for late heavenly upgrades and prestige scaling";
 };
 
 CCAutomated.getAscensionPermanentSlotCandidates = function () {
@@ -2224,7 +2238,9 @@ CCAutomated.getAscensionPermanentSlotCandidates = function () {
 
     candidates.push({
       name: upgrade.name,
-      price: CCAutomated.getUpgradePrice ? CCAutomated.getUpgradePrice(upgrade) : upgrade.basePrice || upgrade.price || 0,
+      price: CCAutomated.getUpgradePrice
+        ? CCAutomated.getUpgradePrice(upgrade)
+        : upgrade.basePrice || upgrade.price || 0,
     });
   }
 
@@ -2237,7 +2253,7 @@ CCAutomated.getAscensionPermanentSlotCandidates = function () {
 
 CCAutomated.getAscensionPermanentSlotText = function () {
   let candidates = CCAutomated.getAscensionPermanentSlotCandidates();
-  if (candidates.length <= 0) return "No owned kitten upgrade yet";
+  if (candidates.length <= 0) return "No owned kitten upgrade yet; choose manually if a slot is available";
 
   let names = [];
   for (let i = 0; i < candidates.length; i++) {
@@ -2284,29 +2300,32 @@ CCAutomated.getAscensionLuckyDigitHints = function (currentPrestige, pendingPres
 };
 
 CCAutomated.getAscensionChocolateEggText = function () {
-  let upgrade = CCAutomated.getUpgradeByName ? CCAutomated.getUpgradeByName("Chocolate egg") : Game.Upgrades["Chocolate egg"];
+  let upgrade = CCAutomated.getUpgradeByName
+    ? CCAutomated.getUpgradeByName("Chocolate egg")
+    : Game.Upgrades["Chocolate egg"];
   if (!upgrade) return "Unknown";
-  if (upgrade.bought) return "Already bought";
-  if (upgrade.unlocked) return "Available; buy after selling buildings";
-  return "Not visible yet";
+  if (upgrade.bought) return "";
+  if (upgrade.unlocked) return "Buy after selling buildings, before ascending";
+  return "Not visible yet; no Chocolate Egg action";
 };
 
 CCAutomated.getAscensionWrinklerText = function () {
   let summary = CCAutomated.getWrinklerSummary ? CCAutomated.getWrinklerSummary() : null;
-  if (!summary || summary.attached <= 0) return "Clear";
+  if (!summary || summary.attached <= 0) return "";
 
-  let text = summary.attached + " attached";
+  let text = "Pop before ascending: " + summary.attached + " attached";
   if (summary.shiny > 0) text += ", " + summary.shiny + " shiny";
   if (summary.sucked > 0) text += ", " + CCAutomated.formatNumber(summary.sucked) + " sucked";
+  if (CCAutomated.Config.Wrinklers > 0) text += ", automation may clear them";
   return text;
 };
 
 CCAutomated.getAscensionGardenText = function () {
   let summary = CCAutomated.getGardenSummary ? CCAutomated.getGardenSummary() : null;
-  if (!summary || !summary.ready) return "Farm minigame not ready";
-  if (summary.comboReady > 0) return summary.comboReady + " mature combo plants";
-  if (summary.comboGrowing > 0) return summary.comboGrowing + " combo plants growing";
-  return "Clear";
+  if (!summary || !summary.ready) return "";
+  if (summary.comboReady > 0) return "Harvest before ascending: " + summary.comboReady + " mature combo plants";
+  if (summary.comboGrowing > 0) return "Optional wait: " + summary.comboGrowing + " combo plants still growing";
+  return "";
 };
 
 CCAutomated.getAscensionSeasonText = function () {
@@ -2314,9 +2333,8 @@ CCAutomated.getAscensionSeasonText = function () {
 
   let seasonName = CCAutomated.getSeasonName();
   let summary = CCAutomated.getSeasonDropSummary(seasonName);
-  if (!summary || summary.total <= 0) return "No tracked drops";
-  if (summary.missing <= 0) return "Drops complete";
-  return summary.missing + " missing in " + seasonName;
+  if (!summary || summary.total <= 0 || summary.missing <= 0) return "";
+  return "Optional wait: " + summary.missing + " tracked drops missing in " + seasonName;
 };
 
 CCAutomated.getAscensionStatus = function () {
@@ -2356,7 +2374,7 @@ CCAutomated.getAscensionStatus = function () {
     CCAutomated.makeStatusLine("Digits", [
       digitHints.length > 0 ? digitHints.join("; ") : "Lucky prestige upgrades owned",
     ]),
-    CCAutomated.makeStatusLine("Save", ["Export before ascending"]),
+    CCAutomated.makeStatusLine("Save", ["Manual safety step: export before ascending"]),
   ];
 
   return {
