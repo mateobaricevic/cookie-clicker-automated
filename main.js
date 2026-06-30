@@ -25,6 +25,14 @@ CCAutomated.AutoBuyer = {
     refreshMs: 10000,
     cpsRefreshRatio: 0.05
 };
+CCAutomated.AutoClicker = {
+    clicksPerTick: 3
+};
+CCAutomated.Wrinklers = {
+    popIntervalMs: 2 * 60 * 60 * 1000,
+    minSuckedToPop: 1,
+    lastPop: Date.now()
+};
 
 CCAutomated.ConfigDefault = {
     AutoClicker: 0,
@@ -171,53 +179,90 @@ Game.UpdateMenu = function() {
 };
 
 // Handle auto clicking Big Cookie
-CCAutomated.handleAutoClicker= function() {
+CCAutomated.clickBigCookie = function() {
+    if (typeof Game.ClickCookie === 'function') {
+        Game.ClickCookie();
+        return;
+    }
+
+    let cookie = l('bigCookie');
+    if (cookie && typeof cookie.click === 'function') cookie.click();
+};
+
+CCAutomated.handleAutoClicker = function() {
     if (CCAutomated.Config.AutoClicker === 0) return;
-    Game.ClickCookie();
+
+    for (let i = 0; i < CCAutomated.AutoClicker.clicksPerTick; i++) {
+        CCAutomated.clickBigCookie();
+    }
 };
 
 // Handle auto clicking Golden Cookies
+CCAutomated.isGoldenShimmerReady = function(shimmer) {
+    if (!shimmer || shimmer.type !== 'golden') return false;
+    if (shimmer.life <= 0) return false;
+
+    let secondsLeft = shimmer.life / Game.fps;
+    if (!Game.Achievements["Early bird"].won) return true;
+    if (!Game.Achievements["Fading luck"].won) return secondsLeft <= 1;
+    return true;
+};
+
 CCAutomated.handleGoldenCookies = function() {
     if (CCAutomated.Config.GoldenCookies === 0) return;
     if (Game.TickerEffect) Game.tickerL.click();
-    for (let sx in Game.shimmers) {
-        let s = Game.shimmers[sx];
-        if (s.force === "cookie storm drop") s.pop();
-        if (s.type !== "golden" || s.life < Game.fps || !Game.Achievements["Early bird"].won) {
-            s.pop();
-            return;
-        }
-        if ((s.life / Game.fps) < (s.dur - 2) && (Game.Achievements["Fading luck"].won)) {
-            s.pop();
-            return;
+
+    for (let i = Game.shimmers.length - 1; i >= 0; i--) {
+        let shimmer = Game.shimmers[i];
+        if (!shimmer) continue;
+        if (shimmer.force === "cookie storm drop" || CCAutomated.isGoldenShimmerReady(shimmer)) {
+            shimmer.pop();
         }
     }
 };
 
 // Handle auto clicking Wrinklers
-CCAutomated.wrinklerTime = Date.now();
+CCAutomated.isWrinklerAttached = function(wrinkler) {
+    return wrinkler && wrinkler.close === 1 && wrinkler.hp > 0;
+};
+
+CCAutomated.popWrinkler = function(wrinkler) {
+    if (wrinkler) wrinkler.hp = 0;
+};
+
+CCAutomated.getBestWrinklerToPop = function() {
+    let bestWrinkler = null;
+    let maxSucked = CCAutomated.Wrinklers.minSuckedToPop;
+
+    for (let i = 0; i < Game.wrinklers.length; i++) {
+        let wrinkler = Game.wrinklers[i];
+        if (!CCAutomated.isWrinklerAttached(wrinkler)) continue;
+        if (wrinkler.sucked >= maxSucked) {
+            maxSucked = wrinkler.sucked;
+            bestWrinkler = wrinkler;
+        }
+    }
+
+    return bestWrinkler;
+};
+
 CCAutomated.handleWrinklers = function() {
     if (CCAutomated.Config.Wrinklers === 0) return;
     if (!Game.Upgrades["One mind"].bought) return;
     if (Game.Upgrades["Unholy bait"].bought && !Game.Achievements["Moistburster"].won) {
-        Game.wrinklers.forEach(function(w) { if (w.close === 1) w.hp = 0; } );
-    } else {
-        // Find a wrinkler which sucked the most cookies
-        CCAutomated.nextWrinkler = -1;
-        let maxSucked = 0;
-        for (let wrinkler of Game.wrinklers) {
-            if (wrinkler.sucked > maxSucked && wrinkler.close !== 0){
-                maxSucked = wrinkler.sucked;
-                CCAutomated.nextWrinkler = wrinkler.id;
-            }
-        }
-        // Pop a wrinkler every 2 hours
-        if (CCAutomated.nextWrinkler !== -1) {
-            if (Date.now() - CCAutomated.wrinklerTime >= 2*60*60*1000) {
-                Game.wrinklers[CCAutomated.nextWrinkler].hp = 0;
-                CCAutomated.wrinklerTime = Date.now();
-            }
-        }
+        Game.wrinklers.forEach(function(wrinkler) {
+            if (CCAutomated.isWrinklerAttached(wrinkler)) CCAutomated.popWrinkler(wrinkler);
+        });
+        return;
+    }
+
+    let now = Date.now();
+    if (now - CCAutomated.Wrinklers.lastPop < CCAutomated.Wrinklers.popIntervalMs) return;
+
+    let wrinkler = CCAutomated.getBestWrinklerToPop();
+    if (wrinkler) {
+        CCAutomated.popWrinkler(wrinkler);
+        CCAutomated.Wrinklers.lastPop = now;
     }
 };
 
