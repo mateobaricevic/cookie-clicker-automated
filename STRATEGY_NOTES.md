@@ -25,7 +25,7 @@ These notes collect strategy and quality-of-life ideas for future implementation
 
 4. Pantheon strategy helper
    - Done: support Godzamok combo mode by selling low-value buildings during Click Frenzy or Dragonflight windows.
-   - Add Skruuia-aware wrinkler popping guidance or automation.
+   - Done: add Skruuia-aware wrinkler popping guidance and hold timed wrinkler pops for Skruuia when the Pantheon helper is active.
    - Consider Mokalsium-oriented passive CpS guidance.
 
 5. Season automation
@@ -51,11 +51,13 @@ These notes collect strategy and quality-of-life ideas for future implementation
 
 ## Suggested Implementation Order
 
-1. Garden automation.
-2. Combo dashboard and Grimoire improvements.
-3. Stock Market helper.
-4. Advanced auto-buyer planning.
-5. Ascension checklist improvements.
+1. Done: Garden automation.
+2. Done: Combo dashboard and Grimoire improvements.
+3. Done: Pantheon strategy helper.
+4. Season drop tracking and key-drop season safeguards.
+5. Stock Market helper.
+6. Advanced auto-buyer planning.
+7. Ascension checklist improvements.
 
 ## References
 

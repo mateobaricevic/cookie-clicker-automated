@@ -77,6 +77,7 @@ CCAutomated.Garden = {
 };
 CCAutomated.Pantheon = {
   godzamokPattern: /godzamok/i,
+  skruuiaPattern: /skruuia/i,
   godzamokBuffPattern: /devastation/i,
   clickBuffPattern: /click frenzy|dragonflight/i,
   maxSellPerBuilding: 100,
@@ -577,6 +578,35 @@ CCAutomated.getBestWrinklerToPop = function () {
   return bestWrinkler;
 };
 
+CCAutomated.getWrinklerSummary = function () {
+  let summary = {
+    total: 0,
+    attached: 0,
+    shiny: 0,
+    sucked: 0,
+  };
+  if (!Game.wrinklers) return summary;
+
+  summary.total = Game.wrinklers.length;
+  for (let i = 0; i < Game.wrinklers.length; i++) {
+    let wrinkler = Game.wrinklers[i];
+    if (!CCAutomated.isWrinklerAttached(wrinkler)) continue;
+
+    summary.attached++;
+    if (wrinkler.type === 1) summary.shiny++;
+    if (typeof wrinkler.sucked === "number") summary.sucked += wrinkler.sucked;
+  }
+
+  return summary;
+};
+
+CCAutomated.shouldHoldWrinklerPopForSkruuia = function () {
+  if (CCAutomated.Config.Pantheon === 0) return false;
+  if (CCAutomated.isSkruuiaSlotted()) return false;
+  if (!CCAutomated.getPantheon()) return false;
+  return CCAutomated.getWrinklerSummary().attached > 0;
+};
+
 CCAutomated.handleWrinklers = function () {
   if (CCAutomated.Config.Wrinklers === 0) return;
   if (!Game.Upgrades["One mind"].bought) return;
@@ -589,6 +619,7 @@ CCAutomated.handleWrinklers = function () {
 
   let now = Date.now();
   if (now - CCAutomated.Wrinklers.lastPop < CCAutomated.Wrinklers.popIntervalMs) return;
+  if (CCAutomated.shouldHoldWrinklerPopForSkruuia()) return;
 
   let wrinkler = CCAutomated.getBestWrinklerToPop();
   if (wrinkler) {
@@ -1006,6 +1037,14 @@ CCAutomated.getPantheonSlotLabel = function (slotIndex) {
 
 CCAutomated.isGodzamokSlotted = function () {
   return CCAutomated.getPantheonGodSlotMatching(CCAutomated.getPantheon(), CCAutomated.Pantheon.godzamokPattern) >= 0;
+};
+
+CCAutomated.getSkruuiaSlot = function () {
+  return CCAutomated.getPantheonGodSlotMatching(CCAutomated.getPantheon(), CCAutomated.Pantheon.skruuiaPattern);
+};
+
+CCAutomated.isSkruuiaSlotted = function () {
+  return CCAutomated.getSkruuiaSlot() >= 0;
 };
 
 CCAutomated.hasGodzamokBuff = function () {
@@ -1855,20 +1894,32 @@ CCAutomated.getPantheonStatus = function () {
   }
 
   let godzamokSlot = CCAutomated.getPantheonGodSlotMatching(pantheon, CCAutomated.Pantheon.godzamokPattern);
+  let skruuiaSlot = CCAutomated.getSkruuiaSlot();
   let clickSecondsLeft = CCAutomated.getClickComboSecondsLeft();
   let sellable = CCAutomated.getTotalGodzamokSellableBuildings();
+  let wrinklers = CCAutomated.getWrinklerSummary();
   let statusText = "Waiting for click combo";
+  let wrinklerText = wrinklers.attached + " attached";
 
   if (godzamokSlot < 0) statusText = "Godzamok not slotted";
   else if (CCAutomated.hasGodzamokBuff()) statusText = "Godzamok buff active";
   else if (clickSecondsLeft > 2 && sellable > 0) statusText = "Ready to sell";
   else if (clickSecondsLeft > 0 && sellable <= 0) statusText = "No low-value buildings to sell";
 
+  if (wrinklers.shiny > 0) wrinklerText += ", " + wrinklers.shiny + " shiny";
+  if (CCAutomated.Config.Wrinklers === 0) wrinklerText += ", automation off";
+  else if (skruuiaSlot >= 0) wrinklerText += ", Skruuia bonus active";
+  else if (wrinklers.attached > 0) wrinklerText += ", holding for Skruuia";
+
   let lines = [
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("God", [
       godzamokSlot >= 0 ? CCAutomated.getPantheonSlotLabel(godzamokSlot) + " slot" : "Not slotted",
     ]),
+    CCAutomated.makeStatusLine("Skruuia", [
+      skruuiaSlot >= 0 ? CCAutomated.getPantheonSlotLabel(skruuiaSlot) + " slot" : "Not slotted",
+    ]),
+    CCAutomated.makeStatusLine("Wrinklers", [wrinklerText]),
     CCAutomated.makeStatusLine("Combo", [
       clickSecondsLeft > 0 ? "Click buff for " + CCAutomated.formatDuration(clickSecondsLeft) : "No click buff",
     ]),

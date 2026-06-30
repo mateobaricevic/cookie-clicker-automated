@@ -26,7 +26,7 @@ javascript: (function () {
 - Wrinkler popping automation.
 - Wizard tower Grimoire automation for selected spell timing.
 - Garden automation for mature Bakeberry, Queenbeet, and Duketater combo harvests.
-- Pantheon Godzamok combo support.
+- Pantheon Godzamok combo support and Skruuia-aware wrinkler guidance.
 - Season automation for reindeer and visible seasonal upgrades.
 - Auto-buyer that can save for higher-value buildings or upgrades.
 - Ascension recommendation status.
@@ -88,7 +88,9 @@ The settings menu shows current Garden status, planted and mature counts, combo-
 
 The Pantheon automation supports a conservative Godzamok combo mode. When Godzamok is slotted and a Click Frenzy or Dragonflight window is active, it sells low-value non-minigame buildings while keeping a reserve of each building type.
 
-It avoids repeating the sale while the Godzamok buff is active and shows Godzamok slot status, click combo timing, sellable building count, and the latest action in the settings menu.
+It avoids repeating the sale while the Godzamok buff is active and shows Godzamok slot status, Skruuia slot status, wrinkler status, click combo timing, sellable building count, and the latest action in the settings menu.
+
+When both Wrinklers and Pantheon automation are enabled, timed wrinkler pops wait until Skruuia is slotted so the pop benefits from Skruuia. The Moistburster achievement behavior still pops attached wrinklers immediately when needed.
 
 ## Seasons
 
