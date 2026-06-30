@@ -683,6 +683,7 @@ CCAutomated.hasActiveGoldenShimmer = function () {
 CCAutomated.getActiveComboBuffInfo = function () {
   let info = {
     count: 0,
+    names: [],
     multiplier: CCAutomated.getCpsMultiplier(),
     hasFrenzy: false,
     hasClickBuff: false,
@@ -696,6 +697,7 @@ CCAutomated.getActiveComboBuffInfo = function () {
     let buff = Game.buffs[buffName];
     let lowerName = buffName.toLowerCase();
     info.count++;
+    info.names.push(buffName);
     info.secondsLeft = Math.max(info.secondsLeft, CCAutomated.getBuffTimeLeftSeconds(buff));
     if (lowerName.indexOf("frenzy") !== -1) info.hasFrenzy = true;
     if (lowerName.indexOf("click") !== -1) info.hasClickBuff = true;
@@ -1353,7 +1355,7 @@ CCAutomated.formatDuration = function (seconds) {
   return parts.join(" ");
 };
 
-CCAutomated.formatAutoBuyerNumber = function (value) {
+CCAutomated.formatNumber = function (value) {
   if (!isFinite(value)) return "?";
   if (typeof Beautify === "function") return Beautify(value);
   if (Math.abs(value) >= 1000000) return value.toExponential(2);
@@ -1412,14 +1414,14 @@ CCAutomated.getAscensionStatus = function () {
   let gainRatio = currentPrestige > 0 ? pendingPrestige / currentPrestige : 0;
   let ruleText =
     currentPrestige <= 0
-      ? "First ascension at +" + CCAutomated.formatAutoBuyerNumber(targetGain)
-      : "Next at +" + CCAutomated.formatAutoBuyerNumber(targetGain) + " prestige";
+      ? "First ascension at +" + CCAutomated.formatNumber(targetGain)
+      : "Next at +" + CCAutomated.formatNumber(targetGain) + " prestige";
   let statusText = isRecommended
     ? "Ascend now"
-    : "Wait for +" + CCAutomated.formatAutoBuyerNumber(targetGain) + " prestige";
+    : "Wait for +" + CCAutomated.formatNumber(targetGain) + " prestige";
   let rewardText =
     "+" +
-    CCAutomated.formatAutoBuyerNumber(pendingPrestige) +
+    CCAutomated.formatNumber(pendingPrestige) +
     (currentPrestige > 0 ? " prestige (" + Math.floor(gainRatio * 100) + "%)" : " prestige");
 
   let lines = [
@@ -1671,17 +1673,21 @@ CCAutomated.makeStatusLine = function (label, parts) {
 
 CCAutomated.formatComboMultiplier = function (multiplier) {
   if (!isFinite(multiplier)) return "?";
-  if (multiplier >= 100) return CCAutomated.formatAutoBuyerNumber(multiplier) + "x";
+  if (multiplier >= 100) return CCAutomated.formatNumber(multiplier) + "x";
   if (multiplier >= 10) return Math.round(multiplier * 10) / 10 + "x";
   return Math.round(multiplier * 100) / 100 + "x";
 };
 
 CCAutomated.getComboStatusText = function (combo) {
   if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
-  if (CCAutomated.isHugeComboActive()) return "Huge combo";
-  if (CCAutomated.isStrongComboActive()) return "Strong combo";
-  if (combo.count > 0) return "Buff active";
-  return "Idle";
+  if (combo.count <= 0) return "No active buffs";
+
+  let multiplierText = CCAutomated.formatComboMultiplier(combo.multiplier) + " CpS";
+  if (combo.count === 1) return combo.names[0] + " active, " + multiplierText;
+
+  if (CCAutomated.isHugeComboActive()) return combo.count + " buffs active, huge combo at " + multiplierText;
+  if (CCAutomated.isStrongComboActive()) return combo.count + " buffs active, strong combo at " + multiplierText;
+  return combo.count + " buffs active, " + multiplierText;
 };
 
 CCAutomated.getLuckyBankStatusText = function () {
@@ -1690,18 +1696,12 @@ CCAutomated.getLuckyBankStatusText = function () {
     ? CCAutomated.getCookiesPerSecond()
     : CCAutomated.getBaseCookiesPerSecond();
   let target = CCAutomated.getLuckyBankTarget(cookiesPerSecond);
-  let currentLuckyReward = CCAutomated.getLuckyReward(cookies, cookiesPerSecond);
-  let maxLuckyReward = CCAutomated.getLuckyReward(target, cookiesPerSecond);
   let shortfall = Math.max(0, target - cookies);
 
   return {
     target: target,
-    reward: currentLuckyReward,
-    maxReward: maxLuckyReward,
-    text:
-      shortfall > 0
-        ? "Need " + CCAutomated.formatAutoBuyerNumber(shortfall) + " for max Lucky"
-        : "Can spend above Lucky bank",
+    shortfall: shortfall,
+    text: shortfall > 0 ? "Need " + CCAutomated.formatNumber(shortfall) + " more cookies" : "Full; extra cookies are safe",
   };
 };
 
@@ -1709,25 +1709,24 @@ CCAutomated.getComboStatus = function () {
   let combo = CCAutomated.getActiveComboBuffInfo();
   let shimmers = CCAutomated.getGoldenShimmerInfo();
   let lucky = CCAutomated.getLuckyBankStatusText();
-  let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
-  let shimmerText = shimmers.total + " visible";
+  let goldenAutoClicking = CCAutomated.Config.GoldenCookies > 0;
+  let shimmerText = "";
   if (shimmers.stormDrops > 0) shimmerText += ", " + shimmers.stormDrops + " storm drops";
   if (shimmers.forced > 0) shimmerText += ", " + shimmers.forced + " forced";
+  if (shimmerText) shimmerText = shimmers.total + " visible" + shimmerText;
+  else shimmerText = shimmers.total > 0 ? shimmers.total + " visible" : "None visible";
+  let luckyBankText =
+    lucky.shortfall > 0 ? lucky.text + " for max Lucky payout" : "Full Lucky bank; extra cookies are safe";
 
   let lines = [
     CCAutomated.makeStatusLine("Status", [CCAutomated.getComboStatusText(combo)]),
-    CCAutomated.makeStatusLine("Buffs", [combo.count + " active", CCAutomated.formatComboMultiplier(combo.multiplier)]),
     CCAutomated.makeStatusLine("Time", [
-      combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) : "No active combo",
+      combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) + " remaining" : "",
     ]),
-    CCAutomated.makeStatusLine("Golden", [shimmerText]),
-    CCAutomated.makeStatusLine("Bank", [
-      CCAutomated.formatAutoBuyerNumber(cookies) + " / " + CCAutomated.formatAutoBuyerNumber(lucky.target),
-      lucky.text,
-    ]),
-    CCAutomated.makeStatusLine("Lucky", [
-      CCAutomated.formatAutoBuyerNumber(lucky.reward) + " now",
-      CCAutomated.formatAutoBuyerNumber(lucky.maxReward) + " max",
+    CCAutomated.makeStatusLine("Golden", [goldenAutoClicking ? "" : shimmerText]),
+    CCAutomated.makeStatusLine("Lucky bank", [
+      luckyBankText,
+      "target " + CCAutomated.formatNumber(lucky.target),
     ]),
   ];
 
@@ -1781,9 +1780,9 @@ CCAutomated.getGrimoireStatus = function () {
   let lines = [
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Magic", [
-      CCAutomated.formatAutoBuyerNumber(magic) +
-        (maxMagic !== null ? " / " + CCAutomated.formatAutoBuyerNumber(maxMagic) : ""),
-      isFinite(cost) ? "FtHoF costs " + CCAutomated.formatAutoBuyerNumber(cost) : "",
+      CCAutomated.formatNumber(magic) +
+        (maxMagic !== null ? " / " + CCAutomated.formatNumber(maxMagic) : ""),
+      isFinite(cost) ? "FtHoF costs " + CCAutomated.formatNumber(cost) : "",
     ]),
     CCAutomated.makeStatusLine("Combo", [
       CCAutomated.getComboStatusText(combo),
@@ -1810,7 +1809,7 @@ CCAutomated.getAutoBuyerBankStatus = function () {
   if (strategicReserve > 0) reasons.push("lucky payouts");
 
   if (totalReserve <= 0) return "Not keeping extra cookies";
-  return "Keeping " + CCAutomated.formatAutoBuyerNumber(totalReserve) + " for " + reasons.join(" and ");
+  return "Keeping " + CCAutomated.formatNumber(totalReserve) + " for " + reasons.join(" and ");
 };
 
 CCAutomated.getGardenActionText = function () {
@@ -1952,25 +1951,31 @@ CCAutomated.getSeasonStatus = function () {
     };
   }
 
-  let modeText = CCAutomated.ConfigData.Season.label[CCAutomated.Config.Season];
+  let seasonName = CCAutomated.getSeasonName();
+  if (seasonName === "none") {
+    return {
+      title: "Seasons",
+      lines: [{ label: "Status", value: "No season active" }],
+    };
+  }
+
   let reindeer = CCAutomated.getReindeerShimmerInfo();
   let candidates = CCAutomated.getSeasonUpgradeCandidates();
   let affordable = CCAutomated.getBestAffordableSeasonUpgrade();
-  let statusText = "Watching for reindeer";
-
-  if (reindeer.total > 0) statusText = "Reindeer visible";
-  else if (CCAutomated.Config.Season >= 2 && affordable) statusText = "Ready to buy seasonal upgrade";
-  else if (CCAutomated.Config.Season >= 2 && candidates.length > 0) statusText = "Saving for seasonal upgrade";
-  else if (CCAutomated.Config.Season >= 2) statusText = "No seasonal upgrades visible";
-
   let nextUpgrade = affordable || candidates[0] || null;
+  let statusText = seasonName + ": watching for reindeer";
+
+  if (reindeer.total > 0) statusText = seasonName + ": clicking reindeer";
+  else if (CCAutomated.Config.Season >= 2 && affordable) statusText = seasonName + ": buying " + affordable.name;
+  else if (CCAutomated.Config.Season >= 2 && nextUpgrade) statusText = seasonName + ": saving for " + nextUpgrade.name;
+  else if (CCAutomated.Config.Season >= 2) statusText = seasonName + ": watching for seasonal drops";
+
   let upgradeText = nextUpgrade
-    ? nextUpgrade.name + " (" + CCAutomated.formatAutoBuyerNumber(nextUpgrade.price) + ")"
+    ? nextUpgrade.name + " (" + CCAutomated.formatNumber(nextUpgrade.price) + ")"
     : "None visible";
 
   let lines = [
-    CCAutomated.makeStatusLine("Status", [statusText, modeText]),
-    CCAutomated.makeStatusLine("Season", [CCAutomated.getSeasonName()]),
+    CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Reindeer", [reindeer.total + " visible"]),
     CCAutomated.makeStatusLine("Upgrade", [upgradeText]),
     CCAutomated.makeStatusLine("Action", [CCAutomated.getSeasonActionText()]),
@@ -1992,13 +1997,11 @@ CCAutomated.getAutoBuyerStatus = function () {
     };
   }
 
-  let modeText = CCAutomated.ConfigData.AutoBuyer.label[CCAutomated.Config.AutoBuyer];
   let candidate = CCAutomated.updateAutoBuyerTargetPrice(CCAutomated.AutoBuyer.target);
   if (!candidate) {
     return {
       title: "Auto-buyer",
       lines: [
-        CCAutomated.makeStatusLine("Mode", [modeText]),
         {
           label: "Status",
           value: CCAutomated.getAutoBuyerStrategy().allowSaving ? "Scanning for target" : "No affordable target",
@@ -2018,12 +2021,11 @@ CCAutomated.getAutoBuyerStatus = function () {
   let isHoldingForCombo =
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
   let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatDuration(waitSeconds);
-  let gainText = displayGain > 0 ? "+" + CCAutomated.formatAutoBuyerNumber(displayGain) + " CpS" : "";
+  let gainText = displayGain > 0 ? "+" + CCAutomated.formatNumber(displayGain) + " CpS" : "";
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
-    CCAutomated.makeStatusLine("Mode", [modeText]),
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
     CCAutomated.makeStatusLine("Value", [gainText]),
