@@ -274,9 +274,9 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
     subsection.appendChild(listing(config));
   }
   subsection.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
-  subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.grimoireStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.pantheonStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.seasonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
@@ -1406,9 +1406,7 @@ CCAutomated.getAscensionStatus = function () {
     currentPrestige <= 0
       ? "First ascension at +" + CCAutomated.formatNumber(targetGain)
       : "Next at +" + CCAutomated.formatNumber(targetGain) + " prestige";
-  let statusText = isRecommended
-    ? "Ascend now"
-    : "Wait for +" + CCAutomated.formatNumber(targetGain) + " prestige";
+  let statusText = isRecommended ? "Ascend now" : "Wait for +" + CCAutomated.formatNumber(targetGain) + " prestige";
   let rewardText =
     "+" +
     CCAutomated.formatNumber(pendingPrestige) +
@@ -1690,7 +1688,8 @@ CCAutomated.getLuckyBankStatusText = function () {
   return {
     target: target,
     shortfall: shortfall,
-    text: shortfall > 0 ? "Need " + CCAutomated.formatNumber(shortfall) + " more cookies" : "Full; extra cookies are safe",
+    text:
+      shortfall > 0 ? "Need " + CCAutomated.formatNumber(shortfall) + " more cookies" : "Full; extra cookies are safe",
   };
 };
 
@@ -1713,10 +1712,7 @@ CCAutomated.getComboStatus = function () {
       combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) + " remaining" : "",
     ]),
     CCAutomated.makeStatusLine("Golden", [goldenAutoClicking ? "" : shimmerText]),
-    CCAutomated.makeStatusLine("Lucky bank", [
-      luckyBankText,
-      "target " + CCAutomated.formatNumber(lucky.target),
-    ]),
+    CCAutomated.makeStatusLine("Lucky bank", [luckyBankText, "target " + CCAutomated.formatNumber(lucky.target)]),
   ];
 
   return {
@@ -1769,8 +1765,7 @@ CCAutomated.getGrimoireStatus = function () {
   let lines = [
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Magic", [
-      CCAutomated.formatNumber(magic) +
-        (maxMagic !== null ? " / " + CCAutomated.formatNumber(maxMagic) : ""),
+      CCAutomated.formatNumber(magic) + (maxMagic !== null ? " / " + CCAutomated.formatNumber(maxMagic) : ""),
       isFinite(cost) ? "FtHoF costs " + CCAutomated.formatNumber(cost) : "",
     ]),
     CCAutomated.makeStatusLine("Combo", [
