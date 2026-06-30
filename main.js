@@ -105,7 +105,6 @@ CCAutomated.ConfigDefault = {
   Pantheon: 0,
   Season: 0,
   AutoBuyer: 0,
-  AutoBuyerStrategy: 1,
   AutoBuyerReserve: 0,
 };
 
@@ -146,12 +145,7 @@ CCAutomated.ConfigData.Season = {
 };
 CCAutomated.ConfigData.AutoBuyer = {
   name: "Auto-buyer",
-  label: ["OFF", "ON"],
-  description: "buy or save for the best building or upgrade",
-};
-CCAutomated.ConfigData.AutoBuyerStrategy = {
-  name: "Buyer Strategy",
-  label: ["ROI", "Balanced", "Long", "Now"],
+  label: ["OFF", "ROI", "Balanced", "Long", "Now"],
   strategy: [
     {
       maxWaitSeconds: 300,
@@ -182,7 +176,7 @@ CCAutomated.ConfigData.AutoBuyerStrategy = {
       luckyBankRatio: 0,
     },
   ],
-  description: "choose how patient the auto-buyer should be",
+  description: "buy or save for the best building or upgrade",
 };
 CCAutomated.ConfigData.AutoBuyerReserve = {
   name: "Buyer Reserve",
@@ -208,20 +202,26 @@ CCAutomated.saveConfig = function (config) {
 CCAutomated.loadConfig = function () {
   try {
     let storedConfig = window.localStorage.getItem(CCAutomated.ConfigPrefix);
-    CCAutomated.Config = storedConfig ? JSON.parse(storedConfig) : {};
+    if (!storedConfig) {
+      CCAutomated.Config = Object.assign({}, CCAutomated.ConfigDefault);
+      CCAutomated.saveConfig(CCAutomated.Config);
+      return;
+    }
 
-    let modified = !storedConfig;
+    CCAutomated.Config = JSON.parse(storedConfig);
     for (let i in CCAutomated.ConfigDefault) {
       if (
-        typeof CCAutomated.Config[i] === "undefined" ||
+        typeof CCAutomated.Config[i] !== "number" ||
+        !Number.isInteger(CCAutomated.Config[i]) ||
         CCAutomated.Config[i] < 0 ||
         CCAutomated.Config[i] >= CCAutomated.ConfigData[i].label.length
       ) {
-        modified = true;
-        CCAutomated.Config[i] = CCAutomated.ConfigDefault[i];
+        throw new Error("Invalid config entry: " + i);
       }
     }
-    if (modified) CCAutomated.saveConfig(CCAutomated.Config);
+    for (let key in CCAutomated.Config) {
+      if (typeof CCAutomated.ConfigDefault[key] === "undefined") throw new Error("Unknown config entry: " + key);
+    }
   } catch (e) {
     console.warn("[CCAutomated] Failed to load config; restoring defaults", e);
     CCAutomated.Config = Object.assign({}, CCAutomated.ConfigDefault);
@@ -237,8 +237,7 @@ CCAutomated.toggleConfigEntry = function (config) {
     option.textContent = CCAutomated.ConfigData[config].label[CCAutomated.Config[config]];
     option.className = CCAutomated.isConfigEntryOff(config) ? "option off" : "option";
   }
-  if (config === "AutoBuyer" || config === "AutoBuyerStrategy" || config === "AutoBuyerReserve")
-    CCAutomated.AutoBuyer.target = null;
+  if (config === "AutoBuyer" || config === "AutoBuyerReserve") CCAutomated.AutoBuyer.target = null;
   CCAutomated.saveConfig(CCAutomated.Config);
 };
 
@@ -709,6 +708,7 @@ CCAutomated.getLuckyBankTarget = function (cookiesPerSecond) {
 };
 
 CCAutomated.getStrategicBankReserveCookies = function () {
+  if (CCAutomated.Config.AutoBuyer === 0) return 0;
   let strategy = CCAutomated.getAutoBuyerStrategy();
   let ratio = strategy.luckyBankRatio || 0;
   if (ratio <= 0) return 0;
@@ -1146,16 +1146,11 @@ CCAutomated.getAutoBuyerPlanningCookiesPerSecond = function () {
 };
 
 CCAutomated.getAutoBuyerStrategy = function () {
-  let strategyConfig = CCAutomated.Config.AutoBuyerStrategy || 0;
-  return (
-    CCAutomated.ConfigData.AutoBuyerStrategy.strategy[strategyConfig] ||
-    CCAutomated.ConfigData.AutoBuyerStrategy.strategy[0]
-  );
+  return CCAutomated.ConfigData.AutoBuyer.strategy[CCAutomated.Config.AutoBuyer - 1];
 };
 
 CCAutomated.getAutoBuyerReserveSeconds = function () {
-  let reserveConfig = CCAutomated.Config.AutoBuyerReserve || 0;
-  return CCAutomated.ConfigData.AutoBuyerReserve.reserveSeconds[reserveConfig] || 0;
+  return CCAutomated.ConfigData.AutoBuyerReserve.reserveSeconds[CCAutomated.Config.AutoBuyerReserve];
 };
 
 CCAutomated.getAutoBuyerReserveCookies = function () {
@@ -1949,16 +1944,20 @@ CCAutomated.getAutoBuyerStatus = function () {
     };
   }
 
+  let modeText = CCAutomated.ConfigData.AutoBuyer.label[CCAutomated.Config.AutoBuyer];
   let candidate = CCAutomated.updateAutoBuyerTargetPrice(CCAutomated.AutoBuyer.target);
   if (!candidate) {
     return {
       title: "Auto-buyer",
       lines: [
+        CCAutomated.makeStatusLine("Mode", [modeText]),
         {
           label: "Status",
           value: CCAutomated.getAutoBuyerStrategy().allowSaving ? "Scanning for target" : "No affordable target",
         },
-      ],
+      ].filter(function (line) {
+        return line;
+      }),
     };
   }
 
@@ -1976,6 +1975,7 @@ CCAutomated.getAutoBuyerStatus = function () {
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
+    CCAutomated.makeStatusLine("Mode", [modeText]),
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
     CCAutomated.makeStatusLine("Value", [gainText]),

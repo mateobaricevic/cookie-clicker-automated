@@ -40,7 +40,7 @@ If the best-scoring option is not affordable yet, the addon waits instead of buy
 
 To avoid saving forever, the buyer prefers targets that are affordable or within about 10 minutes at base CpS. Temporary CpS buffs do not make the buyer chase a long-term target it could not normally afford soon.
 
-The strategy setting controls how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, `Long` is more willing to save for better targets, and `Now` only buys the best currently affordable target.
+The auto-buyer setting controls both whether buying is active and how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, `Long` is more willing to save for better targets, and `Now` only buys the best currently affordable target.
 
 The buyer keeps part of a Lucky-compatible cookie bank. `ROI` keeps only a small bank, `Balanced` keeps a larger one, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
 
@@ -54,7 +54,7 @@ The auto-buyer reserve setting keeps an additional configurable cookie bank unsp
 
 The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, or when base CpS changes noticeably.
 
-The settings menu shows the current auto-buyer target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, active strategy, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
+The settings menu shows the current auto-buyer mode and target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
 
 It skips debug, prestige, and toggle upgrades.
 
