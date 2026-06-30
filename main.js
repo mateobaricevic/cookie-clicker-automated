@@ -1001,9 +1001,9 @@ CCAutomated.getAutoBuyerStatus = function () {
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
+    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
     CCAutomated.makeAutoBuyerStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
     CCAutomated.makeAutoBuyerStatusLine("Value", [gainText]),
-    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
     CCAutomated.makeAutoBuyerStatusLine("Bank", [CCAutomated.getAutoBuyerBankStatus()]),
   ];
 
