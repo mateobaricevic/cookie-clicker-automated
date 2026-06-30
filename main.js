@@ -1584,7 +1584,7 @@ CCAutomated.getBestAutoBuyerCandidate = function () {
       bestWithinWait = candidates[i];
   }
 
-  if (!strategy.allowSaving) return bestAffordable;
+  if (!strategy.allowSaving) return bestAffordable || best;
   return bestWithinWait || bestAffordable || best;
 };
 
@@ -2021,6 +2021,9 @@ CCAutomated.getAutoBuyerStatus = function () {
   let isHoldingForCombo =
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
   let statusText = canBuyNow ? "Ready to buy" : "Waiting for " + CCAutomated.formatDuration(waitSeconds);
+  if (!CCAutomated.getAutoBuyerStrategy().allowSaving && !candidate.affordable) {
+    statusText = "Next target in " + CCAutomated.formatDuration(waitSeconds);
+  }
   let gainText = displayGain > 0 ? "+" + CCAutomated.formatNumber(displayGain) + " CpS" : "";
   if (displayGain === 0 && candidate.priority) gainText = "Strategic upgrade";
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
@@ -2047,6 +2050,7 @@ CCAutomated.shouldRefreshAutoBuyerTarget = function () {
   let previousCookiesPerSecond = CCAutomated.AutoBuyer.lastCookiesPerSecond;
 
   if (!CCAutomated.isAutoBuyerTargetValid(CCAutomated.AutoBuyer.target)) return true;
+  if (!CCAutomated.getAutoBuyerStrategy().allowSaving && !CCAutomated.AutoBuyer.target.affordable) return true;
   if (now - CCAutomated.AutoBuyer.lastRefresh >= CCAutomated.AutoBuyer.refreshMs) return true;
   if (storeSignature !== CCAutomated.AutoBuyer.lastStoreSignature) return true;
   if (previousCookiesPerSecond <= 0 && cookiesPerSecond > 0) return true;

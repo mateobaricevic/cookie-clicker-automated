@@ -61,7 +61,7 @@ Strategic upgrades receive priority bonuses beyond raw immediate CpS, including 
 
 The auto-buyer reserve setting keeps an additional configurable cookie bank unspent. Reserve levels are based on base CpS, so a `10 min` reserve means the buyer behaves as though 10 minutes of base production is unavailable for purchases.
 
-The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, or when base CpS changes noticeably.
+The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, when base CpS changes noticeably, or while `Now` mode is waiting on an unaffordable preview target.
 
 The settings menu shows the current auto-buyer mode and target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
 
