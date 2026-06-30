@@ -100,9 +100,9 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   subsection.appendChild(CCAutomated.ConfigDisplay.grimoireStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.pantheonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.stockMarketStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.seasonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
-  subsection.appendChild(CCAutomated.ConfigDisplay.stockMarketStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
 
   let menu = l("menu");
