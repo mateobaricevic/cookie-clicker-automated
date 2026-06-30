@@ -149,10 +149,15 @@ CCAutomated.isConfigEntryOff = function(config) {
 
 CCAutomated.ConfigDisplay.displayMenu = function() {
     let frag = document.createDocumentFragment();
+    let subsection = document.createElement('div');
+    subsection.className = 'subsection';
+    subsection.style.padding = '0px';
+    frag.appendChild(subsection);
+
     let div = document.createElement('div');
     div.className = 'title';
     div.textContent = 'Cookie Clicker Automated Settings';
-    frag.appendChild(div);
+    subsection.appendChild(div);
     let listing = function(config) {
         let div = document.createElement('div');
         div.className = 'listing';
@@ -169,9 +174,9 @@ CCAutomated.ConfigDisplay.displayMenu = function() {
         return div;
     };
     for (let config in CCAutomated.ConfigDefault) {
-        frag.appendChild(listing(config));
+        subsection.appendChild(listing(config));
     }
-    frag.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
+    subsection.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
 
     let menu = l('menu');
     let menuContent = menu && menu.childNodes[2];
@@ -183,8 +188,34 @@ CCAutomated.ConfigDisplay.autoBuyerStatus = function() {
     let div = document.createElement('div');
     div.className = 'listing';
     div.style.opacity = '0.75';
-    div.style.paddingTop = '4px';
-    div.textContent = CCAutomated.getAutoBuyerStatusText();
+    div.style.padding = '6px 0px 2px 0px';
+    div.style.lineHeight = '140%';
+
+    let status = CCAutomated.getAutoBuyerStatus();
+    let title = document.createElement('div');
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '2px';
+    title.textContent = status.title;
+    div.appendChild(title);
+
+    for (let i = 0; i < status.lines.length; i++) {
+        let line = document.createElement('div');
+        line.style.display = 'grid';
+        line.style.gridTemplateColumns = '74px 1fr';
+        line.style.columnGap = '8px';
+
+        let label = document.createElement('span');
+        label.style.opacity = '0.7';
+        label.textContent = status.lines[i].label;
+        line.appendChild(label);
+
+        let value = document.createElement('span');
+        value.textContent = status.lines[i].value;
+        line.appendChild(value);
+
+        div.appendChild(line);
+    }
+
     return div;
 };
 
@@ -786,13 +817,43 @@ CCAutomated.canBuyDuringCombo = function(candidate) {
     return payout.after >= payout.before * CCAutomated.AutoBuyer.comboPayoutTolerance;
 };
 
-CCAutomated.getAutoBuyerStatusText = function() {
-    if (CCAutomated.Config.AutoBuyer === 0) return 'Auto-buyer target: inactive';
+CCAutomated.joinAutoBuyerStatusParts = function(parts) {
+    let filtered = [];
+
+    for (let i = 0; i < parts.length; i++) {
+        if (parts[i]) filtered.push(parts[i]);
+    }
+
+    return filtered.join(' | ');
+};
+
+CCAutomated.makeAutoBuyerStatusLine = function(label, parts) {
+    let value = CCAutomated.joinAutoBuyerStatusParts(parts);
+    if (!value) return null;
+
+    return {
+        label: label,
+        value: value
+    };
+};
+
+CCAutomated.getAutoBuyerStatus = function() {
+    if (CCAutomated.Config.AutoBuyer === 0) {
+        return {
+            title: 'Auto-buyer',
+            lines: [{ label: 'Status', value: 'Inactive' }]
+        };
+    }
 
     let candidate = CCAutomated.updateAutoBuyerTargetPrice(CCAutomated.AutoBuyer.target);
     if (!candidate) {
-        if (!CCAutomated.getAutoBuyerStrategy().allowSaving) return 'Auto-buyer target: no affordable target';
-        return 'Auto-buyer target: scanning';
+        return {
+            title: 'Auto-buyer',
+            lines: [{
+                label: 'Status',
+                value: CCAutomated.getAutoBuyerStrategy().allowSaving ? 'Scanning for target' : 'No affordable target'
+            }]
+        };
     }
 
     let cookies = typeof Game.cookies === 'number' ? Game.cookies : 0;
@@ -801,21 +862,30 @@ CCAutomated.getAutoBuyerStatusText = function() {
     let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, spendableCookies, cookiesPerSecond);
     let displayGain = typeof candidate.realGain === 'number' ? candidate.realGain : candidate.gain;
     let payoffSeconds = displayGain > 0 ? candidate.price / displayGain : Infinity;
-    let action = candidate.affordable ? 'ready' : 'waiting ' + CCAutomated.formatAutoBuyerTime(waitSeconds);
+    let action = candidate.affordable ? 'Ready to buy' : 'Waiting ' + CCAutomated.formatAutoBuyerTime(waitSeconds);
     let reserveSeconds = CCAutomated.getAutoBuyerReserveSeconds();
     let strategyLabel = CCAutomated.ConfigData.AutoBuyerStrategy.label[CCAutomated.Config.AutoBuyerStrategy || 0];
-    let strategyText = strategyLabel ? ', ' + strategyLabel : '';
-    let gainText = ', +' + CCAutomated.formatAutoBuyerNumber(displayGain) + ' CpS';
-    let payoffText = displayGain > 0 ? ', payoff ' + CCAutomated.formatAutoBuyerTime(payoffSeconds) : '';
-    let thresholdText = candidate.threshold ? ', threshold ' + candidate.threshold : '';
-    let priorityText = candidate.priority ? ', ' + candidate.priority : '';
-    let reserveText = reserveSeconds ? ', reserve ' + CCAutomated.formatAutoBuyerTime(reserveSeconds) : '';
+    let gainText = displayGain > 0 ? '+' + CCAutomated.formatAutoBuyerNumber(displayGain) + ' CpS' : '';
+    let payoffText = displayGain > 0 ? 'Pays off in ' + CCAutomated.formatAutoBuyerTime(payoffSeconds) : '';
+    let thresholdText = candidate.threshold ? 'Building milestone ' + candidate.threshold : '';
+    let priorityText = candidate.priority || '';
+    let reserveText = reserveSeconds ? 'Manual reserve ' + CCAutomated.formatAutoBuyerTime(reserveSeconds) : '';
     let bankReserve = CCAutomated.getStrategicBankReserveCookies();
-    let bankText = bankReserve ? ', bank ' + CCAutomated.formatAutoBuyerNumber(bankReserve) : '';
-    let comboText = CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate) ? ', holding for combo' : '';
-    if (displayGain === 0 && candidate.priority) gainText = ', strategic';
+    let bankText = bankReserve ? 'Lucky bank ' + CCAutomated.formatAutoBuyerNumber(bankReserve) : '';
+    let comboText = CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate) ? 'Holding for combo payout' : '';
+    if (displayGain === 0 && candidate.priority) gainText = 'Strategic upgrade';
 
-    return 'Auto-buyer target: ' + candidate.name + ' (' + candidate.type + ', ' + action + strategyText + gainText + payoffText + thresholdText + priorityText + reserveText + bankText + comboText + ')';
+    let lines = [
+        CCAutomated.makeAutoBuyerStatusLine('Status', [action, candidate.type]),
+        CCAutomated.makeAutoBuyerStatusLine('Plan', ['Strategy ' + strategyLabel, thresholdText, priorityText]),
+        CCAutomated.makeAutoBuyerStatusLine('Value', [gainText, payoffText]),
+        CCAutomated.makeAutoBuyerStatusLine('Bank', [reserveText, bankText, comboText])
+    ];
+
+    return {
+        title: 'Auto-buyer target: ' + candidate.name,
+        lines: lines.filter(function(line) { return line; })
+    };
 };
 
 CCAutomated.shouldRefreshAutoBuyerTarget = function() {
