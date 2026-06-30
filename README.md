@@ -44,6 +44,15 @@ The auto-buyer setting controls both whether buying is active and how patient th
 
 The buyer keeps part of a Lucky-compatible cookie bank. `ROI` keeps only a small bank, `Balanced` keeps a larger one, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
 
+Recommended mode:
+
+- `Balanced` is the best all-purpose default. It preserves a meaningful Lucky bank, waits for better-value purchases, and avoids spending too eagerly.
+- `ROI` is best for fast, aggressive early-game growth when banking matters less.
+- `Long` is best in mid or late game when you want the buyer to wait for higher-value targets while protecting the full Lucky bank.
+- `Now` is best only when you want immediate spending on the best currently affordable option.
+
+For a safer default, use `Balanced` with `Buyer Reserve` set to `10 min`.
+
 During strong golden-cookie or dragon buff windows, the buyer compares expected Lucky payout before and after a purchase. It only spends if the buy does not meaningfully reduce combo payout.
 
 Building purchases that reach common milestones, such as 10, 25, and every 50 buildings after that, receive a score bonus so the buyer is more likely to unlock related achievements and upgrades.
