@@ -29,10 +29,10 @@ These notes collect strategy and quality-of-life ideas for future implementation
    - Consider Mokalsium-oriented passive CpS guidance.
 
 5. Season automation
-   - Auto-buy Santa stages.
+   - Done: auto-click reindeer during Christmas.
+   - Done: auto-buy affordable visible seasonal upgrades, prioritizing Santa and festive upgrades.
    - Track seasonal cookie, egg, and reindeer drops.
    - Avoid leaving a season before key drops are collected.
-   - Auto-click reindeer during Christmas.
 
 6. Stock Market helper
    - Show each stock's resting value and buy/sell signal.
@@ -53,10 +53,9 @@ These notes collect strategy and quality-of-life ideas for future implementation
 
 1. Garden automation.
 2. Combo dashboard and Grimoire improvements.
-3. Season automation.
-4. Stock Market helper.
-5. Advanced auto-buyer planning.
-6. Ascension checklist improvements.
+3. Stock Market helper.
+4. Advanced auto-buyer planning.
+5. Ascension checklist improvements.
 
 ## References
 

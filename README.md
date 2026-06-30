@@ -5,6 +5,7 @@ It can automate clicking the Big Cookie, popping Golden Cookies, popping Wrinkle
 It can also auto-buy or save for the best building or upgrade based on estimated payoff time.
 It can manage selected Garden tasks, including combo harvests and safe holding behavior.
 It can trigger Godzamok during click combo windows by selling low-value buildings.
+It can click reindeer and buy affordable seasonal upgrades.
 It shows an ascension recommendation in the settings menu so you can see when a reset is worth considering.
 
 ## Bookmarklet
@@ -26,6 +27,7 @@ javascript: (function () {
 - Wizard tower Grimoire automation for selected spell timing.
 - Garden automation for mature Bakeberry, Queenbeet, and Duketater combo harvests.
 - Pantheon Godzamok combo support.
+- Season automation for reindeer and visible seasonal upgrades.
 - Auto-buyer that can save for higher-value buildings or upgrades.
 - Ascension recommendation status.
 - Preferences menu entries inside Cookie Clicker's settings menu.
@@ -88,6 +90,14 @@ The Pantheon automation supports a conservative Godzamok combo mode. When Godzam
 
 It avoids repeating the sale while the Godzamok buff is active and shows Godzamok slot status, click combo timing, sellable building count, and the latest action in the settings menu.
 
+## Seasons
+
+The Seasons automation has two active modes. `Click` pops visible reindeer independently of the Golden Cookies setting.
+
+`Manage` also buys affordable seasonal upgrades from the store, prioritizing Santa and festive upgrades first, then reindeer, Easter, Halloween, and Valentine's upgrades. It respects the same spendable-cookie reserve used by the auto-buyer.
+
+The settings menu shows the current season, visible reindeer, next seasonal upgrade, and recent actions.
+
 ## Development
 
 Run the local syntax check before publishing changes:
@@ -100,4 +110,4 @@ The addon is intentionally dependency-free. `npm install` is not required for th
 
 ## Notes
 
-This addon can automatically spend cookies, spend resources, cast spells, sell buildings, pop Wrinklers, harvest Garden plants, freeze or unfreeze the Garden, and change Garden soil. Review the settings before enabling automation on a save you care about.
+This addon can automatically spend cookies, spend resources, cast spells, sell buildings, pop Wrinklers, harvest Garden plants, freeze or unfreeze the Garden, click reindeer, and change Garden soil. Review the settings before enabling automation on a save you care about.

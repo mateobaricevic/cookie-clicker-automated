@@ -17,6 +17,7 @@ CCAutomated.IntervalMs = {
   grimoire: 400,
   garden: 5000,
   pantheon: 500,
+  season: 500,
   autoBuyer: 1000,
 };
 CCAutomated.AutoBuyer = {
@@ -86,6 +87,14 @@ CCAutomated.Pantheon = {
   lastActionAt: 0,
   lowValueBuildingNames: ["Cursor", "Grandma", "Mine", "Factory", "Shipment", "Alchemy lab"],
 };
+CCAutomated.Season = {
+  upgradePattern:
+    /santa|festive|christmas|reindeer|egg|bunny|easter|halloween|valentine|heart|fool|business/i,
+  santaPattern: /santa|festive/i,
+  lastAction: "",
+  lastActionAt: 0,
+  lastUpgradeName: "",
+};
 
 CCAutomated.ConfigDefault = {
   AutoClicker: 0,
@@ -94,6 +103,7 @@ CCAutomated.ConfigDefault = {
   Grimoire: 0,
   Garden: 0,
   Pantheon: 0,
+  Season: 0,
   AutoBuyer: 0,
   AutoBuyerStrategy: 1,
   AutoBuyerReserve: 0,
@@ -128,6 +138,11 @@ CCAutomated.ConfigData.Pantheon = {
   name: "Pantheon",
   label: ["OFF", "Godzamok"],
   description: "sell low-value buildings during click combo windows",
+};
+CCAutomated.ConfigData.Season = {
+  name: "Seasons",
+  label: ["OFF", "Click", "Manage"],
+  description: "click reindeer and buy affordable seasonal upgrades",
 };
 CCAutomated.ConfigData.AutoBuyer = {
   name: "Auto-buyer",
@@ -273,6 +288,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.grimoireStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.pantheonStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.seasonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
 
@@ -329,6 +345,10 @@ CCAutomated.ConfigDisplay.gardenStatus = function () {
 
 CCAutomated.ConfigDisplay.pantheonStatus = function () {
   return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getPantheonStatus());
+};
+
+CCAutomated.ConfigDisplay.seasonStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getSeasonStatus());
 };
 
 CCAutomated.ConfigDisplay.ascensionStatus = function () {
@@ -413,6 +433,124 @@ CCAutomated.handleGoldenCookies = function () {
       shimmer.pop();
     }
   }
+};
+
+CCAutomated.isReindeerShimmerReady = function (shimmer) {
+  return shimmer && shimmer.type === "reindeer" && shimmer.life > 0;
+};
+
+CCAutomated.getReindeerShimmerInfo = function () {
+  let info = {
+    total: 0,
+  };
+  if (!Game.shimmers) return info;
+
+  for (let i = 0; i < Game.shimmers.length; i++) {
+    if (CCAutomated.isReindeerShimmerReady(Game.shimmers[i])) info.total++;
+  }
+
+  return info;
+};
+
+CCAutomated.setSeasonAction = function (action) {
+  CCAutomated.Season.lastAction = action;
+  CCAutomated.Season.lastActionAt = Date.now();
+};
+
+CCAutomated.clickReindeer = function () {
+  let clicked = 0;
+  if (!Game.shimmers) return clicked;
+
+  for (let i = Game.shimmers.length - 1; i >= 0; i--) {
+    let shimmer = Game.shimmers[i];
+    if (!CCAutomated.isReindeerShimmerReady(shimmer)) continue;
+    shimmer.pop();
+    clicked++;
+  }
+
+  if (clicked > 0) CCAutomated.setSeasonAction("Clicked " + clicked + " reindeer");
+  return clicked;
+};
+
+CCAutomated.isSeasonUpgrade = function (upgrade) {
+  return upgrade && upgrade.name && CCAutomated.Season.upgradePattern.test(upgrade.name);
+};
+
+CCAutomated.getSeasonUpgradePriority = function (upgrade) {
+  if (!upgrade || !upgrade.name) return 10;
+  if (CCAutomated.Season.santaPattern.test(upgrade.name)) return 0;
+  if (/reindeer/i.test(upgrade.name)) return 1;
+  if (/egg|bunny|easter/i.test(upgrade.name)) return 2;
+  if (/halloween/i.test(upgrade.name)) return 3;
+  if (/valentine|heart/i.test(upgrade.name)) return 4;
+  return 5;
+};
+
+CCAutomated.getSeasonUpgradeCandidates = function () {
+  let candidates = [];
+  if (!Game.UpgradesInStore) return candidates;
+
+  for (let i = 0; i < Game.UpgradesInStore.length; i++) {
+    let upgrade = Game.UpgradesInStore[i];
+    if (!CCAutomated.isUpgradeCandidate(upgrade)) continue;
+    if (!CCAutomated.isSeasonUpgrade(upgrade)) continue;
+
+    let price = CCAutomated.getUpgradePrice(upgrade);
+    if (!isFinite(price) || price <= 0) continue;
+
+    candidates.push({
+      upgrade: upgrade,
+      price: price,
+      priority: CCAutomated.getSeasonUpgradePriority(upgrade),
+      name: upgrade.name,
+    });
+  }
+
+  candidates.sort(function (a, b) {
+    if (a.priority !== b.priority) return a.priority - b.priority;
+    return a.price - b.price;
+  });
+
+  return candidates;
+};
+
+CCAutomated.getBestAffordableSeasonUpgrade = function () {
+  let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
+  let spendableCookies = CCAutomated.getAutoBuyerSpendableCookies(cookies);
+  let candidates = CCAutomated.getSeasonUpgradeCandidates();
+
+  for (let i = 0; i < candidates.length; i++) {
+    if (candidates[i].price <= spendableCookies) return candidates[i];
+  }
+
+  return null;
+};
+
+CCAutomated.buySeasonUpgrade = function (candidate) {
+  if (!candidate || !candidate.upgrade || typeof candidate.upgrade.buy !== "function") return false;
+  if (candidate.price > CCAutomated.getAutoBuyerSpendableCookies(Game.cookies)) return false;
+  if (typeof candidate.upgrade.canBuy === "function" && !candidate.upgrade.canBuy()) return false;
+
+  try {
+    candidate.upgrade.buy();
+    CCAutomated.AutoBuyer.target = null;
+    CCAutomated.Season.lastUpgradeName = candidate.name;
+    CCAutomated.setSeasonAction("Bought " + candidate.name);
+    return true;
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to buy seasonal upgrade", candidate.name, e);
+  }
+
+  return false;
+};
+
+CCAutomated.handleSeason = function () {
+  if (CCAutomated.Config.Season === 0) return;
+
+  if (CCAutomated.clickReindeer() > 0) return;
+  if (CCAutomated.Config.Season < 2) return;
+
+  CCAutomated.buySeasonUpgrade(CCAutomated.getBestAffordableSeasonUpgrade());
 };
 
 // Handle auto clicking Wrinklers
@@ -1751,6 +1889,58 @@ CCAutomated.getPantheonStatus = function () {
   };
 };
 
+CCAutomated.getSeasonActionText = function () {
+  if (!CCAutomated.Season.lastAction) return "";
+  let ageSeconds = (Date.now() - CCAutomated.Season.lastActionAt) / 1000;
+  if (ageSeconds > 300) return "";
+  return CCAutomated.Season.lastAction;
+};
+
+CCAutomated.getSeasonName = function () {
+  if (Game.season) return Game.season;
+  return "none";
+};
+
+CCAutomated.getSeasonStatus = function () {
+  if (CCAutomated.Config.Season === 0) {
+    return {
+      title: "Seasons",
+      lines: [{ label: "Status", value: "Inactive" }],
+    };
+  }
+
+  let modeText = CCAutomated.ConfigData.Season.label[CCAutomated.Config.Season];
+  let reindeer = CCAutomated.getReindeerShimmerInfo();
+  let candidates = CCAutomated.getSeasonUpgradeCandidates();
+  let affordable = CCAutomated.getBestAffordableSeasonUpgrade();
+  let statusText = "Watching for reindeer";
+
+  if (reindeer.total > 0) statusText = "Reindeer visible";
+  else if (CCAutomated.Config.Season >= 2 && affordable) statusText = "Ready to buy seasonal upgrade";
+  else if (CCAutomated.Config.Season >= 2 && candidates.length > 0) statusText = "Saving for seasonal upgrade";
+  else if (CCAutomated.Config.Season >= 2) statusText = "No seasonal upgrades visible";
+
+  let nextUpgrade = affordable || candidates[0] || null;
+  let upgradeText = nextUpgrade
+    ? nextUpgrade.name + " (" + CCAutomated.formatAutoBuyerNumber(nextUpgrade.price) + ")"
+    : "None visible";
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [statusText, modeText]),
+    CCAutomated.makeStatusLine("Season", [CCAutomated.getSeasonName()]),
+    CCAutomated.makeStatusLine("Reindeer", [reindeer.total + " visible"]),
+    CCAutomated.makeStatusLine("Upgrade", [upgradeText]),
+    CCAutomated.makeStatusLine("Action", [CCAutomated.getSeasonActionText()]),
+  ];
+
+  return {
+    title: "Seasons",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
+};
+
 CCAutomated.getAutoBuyerStatus = function () {
   if (CCAutomated.Config.AutoBuyer === 0) {
     return {
@@ -1893,6 +2083,7 @@ CCAutomated.start = function () {
   CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, CCAutomated.IntervalMs.grimoire);
   CCAutomated.Intervals.garden = setInterval(CCAutomated.handleGarden, CCAutomated.IntervalMs.garden);
   CCAutomated.Intervals.pantheon = setInterval(CCAutomated.handlePantheon, CCAutomated.IntervalMs.pantheon);
+  CCAutomated.Intervals.season = setInterval(CCAutomated.handleSeason, CCAutomated.IntervalMs.season);
   CCAutomated.Intervals.autoBuyer = setInterval(CCAutomated.handleAutoBuyer, CCAutomated.IntervalMs.autoBuyer);
 };
 
