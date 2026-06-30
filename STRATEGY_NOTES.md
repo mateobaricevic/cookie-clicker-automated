@@ -12,7 +12,7 @@ Implemented areas:
 - Grimoire automation that casts Force the Hand of Fate during strong combo windows, avoids visible golden-cookie conflicts, reserves Conjure Baked Goods and lump refills for huge combos, and has conservative wizard tower selling.
 - Garden automation for freezing, unfreezing, soil switching, and harvesting mature Bakeberry, Queenbeet, and Duketater during strong combo windows.
 - Pantheon helper for Godzamok click-combo selling and Skruuia-aware Wrinkler popping.
-- Ascension status using a first-ascension target and repeat-ascension gain threshold.
+- Ascension checklist using a first-ascension target, repeat-ascension gain threshold, reset-prep warnings, permanent-slot suggestions, and lucky-prestige digit hints.
 - Auto-buyer Planning v2 for buy-1, buy-10, and buy-100 building plans, batch milestone scoring, and top-plan status display.
 - Auto-buyer chain planning for locked tiered and synergy upgrades, scored as full plans while buying the next prerequisite building batch.
 
@@ -29,27 +29,26 @@ The project is now past the baseline automation phase. The highest-value work sh
 
 ## Best Next Improvement
 
-Implement **Ascension checklist** next.
+Implement **Stock Market advisor** next.
 
 Why this should come before Stock Market automation:
 
-- It protects high-value, easy-to-forget reset steps before irreversible ascension.
-- The current ascension status already has the core target logic and menu surface.
-- It is safer than automating resets because the first implementation can be read-only guidance.
+- It makes a slow, opaque minigame easier to reason about before any automated trading exists.
+- The first implementation can stay read-only and avoid risky buy/sell actions.
+- It will complement the auto-buyer and ascension checklist by surfacing long-term economy state.
 
-Scope for the checklist implementation:
+Scope for the advisor implementation:
 
-- Show pending prestige, target prestige, ETA, and next likely heavenly upgrade category.
-- Recommend permanent upgrade slot candidates, especially the highest owned kitten upgrades.
-- Warn when Chocolate Egg is available and worth delaying until after building sales.
-- Warn when Wrinklers are attached, combo Garden plants are mature, or seasonal drops are incomplete.
-- Show prestige digit hints for Lucky Digit, Lucky Number, and Lucky Payout when those upgrades are not owned.
+- Show stock goods, prices, deltas, resting values, held stock, capacity, profit, brokers, and office level.
+- Use conservative buy/sell bands around resting value and highlight very low-price opportunities.
+- Show broker overhead and target broker count.
+- Treat loans as combo tools and keep them manual.
 
 ## Suggested Implementation Order
 
 1. Done: Auto-buyer Planning v2: buy-10/buy-100 candidates, top candidate list, clearer payoff/status reporting.
 2. Done: Auto-buyer chain planning: building thresholds, upgrade unlock prerequisites, and strategic chain target display.
-3. Ascension checklist: pre-ascend safety panel for Wrinklers, Garden harvests, Chocolate Egg, permanent upgrade slot suggestions, lucky-prestige digits, and save export.
+3. Done: Ascension checklist: pre-ascend safety panel for Wrinklers, Garden harvests, Chocolate Egg, permanent upgrade slot suggestions, lucky-prestige digits, and save export.
 4. Stock Market advisor: read-only dashboard with resting values, buy/sell bands, broker overhead, capacity, profit progress, and loan readiness.
 5. Grimoire planner: deterministic Force the Hand of Fate preview, season-aware outcome variants, spell count display, and safer dual-cast thresholds.
 6. Garden mutation planner: layout recommendations, plant aging windows, seed unlock progress, and mutation-focused soil timing.
@@ -77,11 +76,11 @@ Acceptance checks:
 - Buyer still refuses combo-window purchases that reduce expected Lucky payout.
 - Status panel shows enough detail to explain the target.
 
-### Ascension Checklist
+### Ascension Checklist (Implemented)
 
 Goal: prevent accidental value loss before a reset and make the next ascension target clearer.
 
-Implementation notes:
+Implemented notes:
 
 - Extend ascension status with checklist lines rather than adding a new automation mode first.
 - Show pending prestige, target prestige, ETA, and next likely heavenly upgrade category.

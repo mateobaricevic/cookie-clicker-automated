@@ -6,7 +6,7 @@ It can also auto-buy or save for the best building or upgrade based on estimated
 It can manage selected Garden tasks, including combo harvests and safe holding behavior.
 It can trigger Godzamok during click combo windows by selling low-value buildings.
 It can click reindeer and buy affordable seasonal upgrades.
-It shows an ascension recommendation in the settings menu so you can see when a reset is worth considering.
+It shows an ascension checklist in the settings menu so you can see when a reset is worth considering and what to clean up first.
 
 ## Bookmarklet
 
@@ -29,7 +29,7 @@ javascript: (function () {
 - Pantheon Godzamok combo support and Skruuia-aware wrinkler guidance.
 - Season automation for reindeer, visible seasonal upgrades, drop tracking, and safe season switching.
 - Auto-buyer that can save for higher-value buildings or upgrades.
-- Ascension recommendation status.
+- Ascension recommendation and reset-prep checklist.
 - Preferences menu entries inside Cookie Clicker's settings menu.
 
 ## Auto-Buyer
@@ -72,9 +72,11 @@ It skips debug, prestige, and toggle upgrades.
 
 ## Ascension
 
-The settings menu shows whether you should ascend now, how many prestige levels you would gain, and an ETA for reaching the recommendation.
+The settings menu shows whether you should ascend now, how many prestige levels you would gain, the target total prestige level, and an ETA for reaching the recommendation.
 
 The addon recommends the first ascension at `+365` prestige levels. After that, it recommends ascending when the pending prestige gain is at least `10%` of your current prestige level, with a minimum of `+100` prestige levels.
+
+The ascension panel also includes a read-only reset checklist. It suggests likely heavenly upgrade categories, owned kitten upgrades for permanent upgrade slots, Chocolate Egg timing, attached Wrinklers, mature Garden combo plants, incomplete seasonal drops, Lucky Digit/Number/Payout prestige endings, and an export-save reminder.
 
 ## Combo
 
