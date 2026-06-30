@@ -24,7 +24,7 @@ These notes collect strategy and quality-of-life ideas for future implementation
    - Consider tracking spell count and season state for predictable Force the Hand of Fate outcomes.
 
 4. Pantheon strategy helper
-   - Support Godzamok combo mode by selling low-value buildings during Click Frenzy or Dragonflight windows.
+   - Done: support Godzamok combo mode by selling low-value buildings during Click Frenzy or Dragonflight windows.
    - Add Skruuia-aware wrinkler popping guidance or automation.
    - Consider Mokalsium-oriented passive CpS guidance.
 
@@ -53,11 +53,10 @@ These notes collect strategy and quality-of-life ideas for future implementation
 
 1. Garden automation.
 2. Combo dashboard and Grimoire improvements.
-3. Pantheon/Godzamok combo mode.
-4. Season automation.
-5. Stock Market helper.
-6. Advanced auto-buyer planning.
-7. Ascension checklist improvements.
+3. Season automation.
+4. Stock Market helper.
+5. Advanced auto-buyer planning.
+6. Ascension checklist improvements.
 
 ## References
 
