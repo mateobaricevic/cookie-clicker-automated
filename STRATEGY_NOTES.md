@@ -31,8 +31,8 @@ These notes collect strategy and quality-of-life ideas for future implementation
 5. Season automation
    - Done: auto-click reindeer during Christmas.
    - Done: auto-buy affordable visible seasonal upgrades, prioritizing Santa and festive upgrades.
-   - Track seasonal cookie, egg, and reindeer drops.
-   - Avoid leaving a season before key drops are collected.
+   - Done: track seasonal cookie, egg, heart, and reindeer drops.
+   - Done: avoid leaving a season before key drops are collected.
 
 6. Stock Market helper
    - Show each stock's resting value and buy/sell signal.
@@ -54,7 +54,7 @@ These notes collect strategy and quality-of-life ideas for future implementation
 1. Done: Garden automation.
 2. Done: Combo dashboard and Grimoire improvements.
 3. Done: Pantheon strategy helper.
-4. Season drop tracking and key-drop season safeguards.
+4. Done: Season drop tracking and key-drop season safeguards.
 5. Stock Market helper.
 6. Advanced auto-buyer planning.
 7. Ascension checklist improvements.

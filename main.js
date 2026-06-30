@@ -91,6 +91,114 @@ CCAutomated.Pantheon = {
 CCAutomated.Season = {
   upgradePattern: /santa|festive|christmas|reindeer|egg|bunny|easter|halloween|valentine|heart|fool|business/i,
   santaPattern: /santa|festive/i,
+  switchUpgrades: [
+    { name: "Festive biscuit", season: "christmas" },
+    { name: "Lovesick biscuit", season: "valentines" },
+    { name: "Bunny biscuit", season: "easter" },
+    { name: "Ghostly biscuit", season: "halloween" },
+    { name: "Fool's biscuit", season: "fools" },
+  ],
+  dropDefinitions: [
+    {
+      season: "christmas",
+      id: "santa",
+      label: "Santa gifts",
+      gameList: "santaDrops",
+      fallbackNames: [
+        "Increased merriness",
+        "Improved jolliness",
+        "A lump of coal",
+        "An itchy sweater",
+        "Reindeer baking grounds",
+        "Weighted sleighs",
+        "Ho ho ho-flavored frosting",
+        "Season savings",
+        "Toy workshop",
+        "Naughty list",
+        "Santa's bottomless bag",
+        "Santa's helpers",
+        "Santa's legacy",
+        "Santa's milk and cookies",
+      ],
+    },
+    {
+      season: "christmas",
+      id: "reindeer",
+      label: "Reindeer drops",
+      gameList: "reindeerDrops",
+      fallbackNames: [
+        "Christmas tree biscuits",
+        "Snowflake biscuits",
+        "Snowman biscuits",
+        "Holly biscuits",
+        "Candy cane biscuits",
+        "Bell biscuits",
+        "Present biscuits",
+      ],
+    },
+    {
+      season: "easter",
+      id: "eggs",
+      label: "Eggs",
+      gameList: "easterEggs",
+      pool: "easter",
+      fallbackNames: [
+        "Chicken egg",
+        "Duck egg",
+        "Turkey egg",
+        "Quail egg",
+        "Robin egg",
+        "Ostrich egg",
+        "Cassowary egg",
+        "Salmon roe",
+        "Frogspawn",
+        "Shark egg",
+        "Turtle egg",
+        "Ant larva",
+        "Century egg",
+        "Golden goose egg",
+        "Faberge egg",
+        "Wrinklerspawn",
+        "Cookie egg",
+        "Omelette",
+        "Chocolate egg",
+        '"egg"',
+      ],
+    },
+    {
+      season: "halloween",
+      id: "cookies",
+      label: "Halloween cookies",
+      gameList: "halloweenDrops",
+      pool: "halloween",
+      fallbackNames: [
+        "Skull cookies",
+        "Ghost cookies",
+        "Bat cookies",
+        "Slime cookies",
+        "Pumpkin cookies",
+        "Eyeball cookies",
+        "Spider cookies",
+      ],
+    },
+    {
+      season: "valentines",
+      id: "hearts",
+      label: "Heart cookies",
+      gameList: "heartDrops",
+      pool: "valentines",
+      fallbackNames: [
+        "Pure heart biscuits",
+        "Ardent heart biscuits",
+        "Sour heart biscuits",
+        "Weeping heart biscuits",
+        "Golden heart biscuits",
+        "Eternal heart biscuits",
+        "Prism heart biscuits",
+      ],
+    },
+  ],
+  dropCounts: {},
   lastAction: "",
   lastActionAt: 0,
   lastUpgradeName: "",
@@ -475,6 +583,199 @@ CCAutomated.getSeasonUpgradePriority = function (upgrade) {
   return 5;
 };
 
+CCAutomated.normalizeSeasonName = function (seasonName) {
+  if (!seasonName) return "none";
+  return seasonName.toString().toLowerCase();
+};
+
+CCAutomated.getUpgradeByName = function (name) {
+  if (!name || !Game.Upgrades) return null;
+  return Game.Upgrades[name] || null;
+};
+
+CCAutomated.addUniqueUpgradeName = function (names, name) {
+  if (!name || names.indexOf(name) !== -1) return;
+  names.push(name);
+};
+
+CCAutomated.addSeasonDropNamesFromList = function (names, list) {
+  if (!list || typeof list.length !== "number") return;
+
+  for (let i = 0; i < list.length; i++) {
+    let item = list[i];
+    if (typeof item === "string") CCAutomated.addUniqueUpgradeName(names, item);
+    else if (item && item.name) CCAutomated.addUniqueUpgradeName(names, item.name);
+  }
+};
+
+CCAutomated.addSeasonDropNamesFromPool = function (names, pool) {
+  if (!pool) return;
+
+  let upgradesByPool = Game.UpgradesByPool && Game.UpgradesByPool[pool];
+  CCAutomated.addSeasonDropNamesFromList(names, upgradesByPool);
+
+  if (!Game.UpgradesById) return;
+  for (let i = 0; i < Game.UpgradesById.length; i++) {
+    let upgrade = Game.UpgradesById[i];
+    if (upgrade && upgrade.pool === pool) CCAutomated.addUniqueUpgradeName(names, upgrade.name);
+  }
+};
+
+CCAutomated.getSeasonDropDefinitions = function (seasonName) {
+  let season = CCAutomated.normalizeSeasonName(seasonName);
+  let definitions = [];
+
+  for (let i = 0; i < CCAutomated.Season.dropDefinitions.length; i++) {
+    if (CCAutomated.Season.dropDefinitions[i].season === season) definitions.push(CCAutomated.Season.dropDefinitions[i]);
+  }
+
+  return definitions;
+};
+
+CCAutomated.getSeasonDropNames = function (definition) {
+  let names = [];
+  if (!definition) return names;
+
+  if (definition.gameList && Game[definition.gameList]) {
+    CCAutomated.addSeasonDropNamesFromList(names, Game[definition.gameList]);
+  }
+
+  if (names.length === 0) {
+    CCAutomated.addSeasonDropNamesFromPool(names, definition.pool);
+  }
+
+  if (names.length === 0) {
+    CCAutomated.addSeasonDropNamesFromList(names, definition.fallbackNames);
+  }
+
+  return names.filter(function (name) {
+    return !!CCAutomated.getUpgradeByName(name);
+  });
+};
+
+CCAutomated.getSeasonDropSummary = function (seasonName) {
+  let definitions = CCAutomated.getSeasonDropDefinitions(seasonName);
+  let summary = {
+    season: CCAutomated.normalizeSeasonName(seasonName),
+    categories: [],
+    total: 0,
+    owned: 0,
+    missing: 0,
+  };
+
+  for (let i = 0; i < definitions.length; i++) {
+    let definition = definitions[i];
+    let names = CCAutomated.getSeasonDropNames(definition);
+    let category = {
+      id: definition.id,
+      label: definition.label,
+      total: names.length,
+      owned: 0,
+      missing: 0,
+      missingNames: [],
+    };
+
+    for (let j = 0; j < names.length; j++) {
+      let upgrade = CCAutomated.getUpgradeByName(names[j]);
+      if (upgrade && upgrade.bought) category.owned++;
+      else category.missingNames.push(names[j]);
+    }
+
+    category.missing = Math.max(0, category.total - category.owned);
+    summary.total += category.total;
+    summary.owned += category.owned;
+    summary.missing += category.missing;
+    if (category.total > 0) summary.categories.push(category);
+  }
+
+  return summary;
+};
+
+CCAutomated.getSeasonDropStatusText = function (summary) {
+  if (!summary || summary.total <= 0) return "No tracked drops";
+
+  let parts = [];
+  for (let i = 0; i < summary.categories.length; i++) {
+    let category = summary.categories[i];
+    let text = category.label + " " + category.owned + "/" + category.total;
+    if (category.missingNames.length > 0) {
+      text += ", missing " + category.missingNames.slice(0, 3).join(", ");
+      if (category.missingNames.length > 3) text += ", +" + (category.missingNames.length - 3);
+    }
+    parts.push(text);
+  }
+
+  return parts.join("; ");
+};
+
+CCAutomated.getSeasonSwitchTarget = function (upgrade) {
+  if (!upgrade || !upgrade.name) return "";
+
+  for (let i = 0; i < CCAutomated.Season.switchUpgrades.length; i++) {
+    let switchUpgrade = CCAutomated.Season.switchUpgrades[i];
+    if (upgrade.name.toLowerCase() === switchUpgrade.name.toLowerCase()) return switchUpgrade.season;
+  }
+
+  return "";
+};
+
+CCAutomated.shouldHoldSeasonSwitchUpgrade = function (upgrade) {
+  let targetSeason = CCAutomated.getSeasonSwitchTarget(upgrade);
+  if (!targetSeason) return false;
+
+  let currentSeason = CCAutomated.normalizeSeasonName(CCAutomated.getSeasonName());
+  if (currentSeason === "none" || currentSeason === targetSeason) return false;
+
+  let drops = CCAutomated.getSeasonDropSummary(currentSeason);
+  return drops.total > 0 && drops.missing > 0;
+};
+
+CCAutomated.getHeldSeasonSwitchUpgradeCandidates = function () {
+  let held = [];
+  if (!Game.UpgradesInStore) return held;
+
+  for (let i = 0; i < Game.UpgradesInStore.length; i++) {
+    let upgrade = Game.UpgradesInStore[i];
+    if (!CCAutomated.isUpgradeCandidate(upgrade)) continue;
+    if (!CCAutomated.shouldHoldSeasonSwitchUpgrade(upgrade)) continue;
+
+    held.push({
+      upgrade: upgrade,
+      name: upgrade.name,
+      price: CCAutomated.getUpgradePrice(upgrade),
+      targetSeason: CCAutomated.getSeasonSwitchTarget(upgrade),
+    });
+  }
+
+  held.sort(function (a, b) {
+    return a.price - b.price;
+  });
+
+  return held;
+};
+
+CCAutomated.updateSeasonDropTracking = function () {
+  let seasonName = CCAutomated.getSeasonName();
+  let summary = CCAutomated.getSeasonDropSummary(seasonName);
+
+  for (let i = 0; i < summary.categories.length; i++) {
+    let category = summary.categories[i];
+    let key = summary.season + ":" + category.id;
+    let previousOwned = CCAutomated.Season.dropCounts[key];
+
+    if (typeof previousOwned === "number" && category.owned > previousOwned) {
+      let gained = category.owned - previousOwned;
+      CCAutomated.setSeasonAction(
+        "Collected " + gained + " " + category.label.toLowerCase() + (gained === 1 ? "" : ""),
+      );
+    }
+
+    CCAutomated.Season.dropCounts[key] = category.owned;
+  }
+
+  return summary;
+};
+
 CCAutomated.getSeasonUpgradeCandidates = function () {
   let candidates = [];
   if (!Game.UpgradesInStore) return candidates;
@@ -483,6 +784,7 @@ CCAutomated.getSeasonUpgradeCandidates = function () {
     let upgrade = Game.UpgradesInStore[i];
     if (!CCAutomated.isUpgradeCandidate(upgrade)) continue;
     if (!CCAutomated.isSeasonUpgrade(upgrade)) continue;
+    if (CCAutomated.shouldHoldSeasonSwitchUpgrade(upgrade)) continue;
 
     let price = CCAutomated.getUpgradePrice(upgrade);
     if (!isFinite(price) || price <= 0) continue;
@@ -535,6 +837,8 @@ CCAutomated.buySeasonUpgrade = function (candidate) {
 
 CCAutomated.handleSeason = function () {
   if (CCAutomated.Config.Season === 0) return;
+
+  CCAutomated.updateSeasonDropTracking();
 
   if (CCAutomated.clickReindeer() > 0) return;
   if (CCAutomated.Config.Season < 2) return;
@@ -1519,6 +1823,7 @@ CCAutomated.getAutoBuyerCandidates = function () {
     for (let j = 0; j < Game.UpgradesInStore.length; j++) {
       let upgrade = Game.UpgradesInStore[j];
       if (!CCAutomated.isUpgradeCandidate(upgrade)) continue;
+      if (CCAutomated.shouldHoldSeasonSwitchUpgrade(upgrade)) continue;
 
       let upgradePrice = CCAutomated.getUpgradePrice(upgrade);
       if (!isFinite(upgradePrice) || upgradePrice <= 0) continue;
@@ -1944,24 +2249,34 @@ CCAutomated.getSeasonStatus = function () {
   }
 
   let reindeer = CCAutomated.getReindeerShimmerInfo();
+  let drops = CCAutomated.getSeasonDropSummary(seasonName);
   let candidates = CCAutomated.getSeasonUpgradeCandidates();
   let affordable = CCAutomated.getBestAffordableSeasonUpgrade();
   let nextUpgrade = affordable || candidates[0] || null;
+  let heldSwitches = CCAutomated.getHeldSeasonSwitchUpgradeCandidates();
+  let heldSwitch = heldSwitches[0] || null;
   let statusText = seasonName + ": watching for reindeer";
 
   if (reindeer.total > 0) statusText = seasonName + ": clicking reindeer";
   else if (CCAutomated.Config.Season >= 2 && affordable) statusText = seasonName + ": buying " + affordable.name;
   else if (CCAutomated.Config.Season >= 2 && nextUpgrade) statusText = seasonName + ": saving for " + nextUpgrade.name;
+  else if (CCAutomated.Config.Season >= 2 && heldSwitch)
+    statusText = seasonName + ": holding " + heldSwitch.name + " until drops are complete";
   else if (CCAutomated.Config.Season >= 2) statusText = seasonName + ": watching for seasonal drops";
 
   let upgradeText = nextUpgrade
     ? nextUpgrade.name + " (" + CCAutomated.formatNumber(nextUpgrade.price) + ")"
     : "None visible";
+  let switchText = heldSwitch
+    ? "Holding " + heldSwitch.name + " for " + CCAutomated.formatNumber(drops.missing) + " missing drops"
+    : "";
 
   let lines = [
     CCAutomated.makeStatusLine("Status", [statusText]),
     CCAutomated.makeStatusLine("Reindeer", [reindeer.total + " visible"]),
+    CCAutomated.makeStatusLine("Drops", [CCAutomated.getSeasonDropStatusText(drops)]),
     CCAutomated.makeStatusLine("Upgrade", [upgradeText]),
+    CCAutomated.makeStatusLine("Switch", [switchText]),
     CCAutomated.makeStatusLine("Action", [CCAutomated.getSeasonActionText()]),
   ];
 

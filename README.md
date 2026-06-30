@@ -27,7 +27,7 @@ javascript: (function () {
 - Wizard tower Grimoire automation for selected spell timing.
 - Garden automation for mature Bakeberry, Queenbeet, and Duketater combo harvests.
 - Pantheon Godzamok combo support and Skruuia-aware wrinkler guidance.
-- Season automation for reindeer and visible seasonal upgrades.
+- Season automation for reindeer, visible seasonal upgrades, drop tracking, and safe season switching.
 - Auto-buyer that can save for higher-value buildings or upgrades.
 - Ascension recommendation status.
 - Preferences menu entries inside Cookie Clicker's settings menu.
@@ -106,7 +106,9 @@ The Seasons automation has two active modes. `Click` pops visible reindeer indep
 
 `Manage` also buys affordable seasonal upgrades from the store, prioritizing Santa and festive upgrades first, then reindeer, Easter, Halloween, and Valentine's upgrades. It respects the same spendable-cookie reserve used by the auto-buyer.
 
-The settings menu shows the current season, visible reindeer, next seasonal upgrade, and recent actions.
+The settings menu shows the current season, visible reindeer, tracked drop progress, next seasonal upgrade, held season switchers, and recent actions.
+
+Season switcher biscuits are held while the current season still has tracked drops missing, so automation does not leave Christmas, Easter, Halloween, or Valentine's before key drops are collected. The auto-buyer uses the same safeguard.
 
 ## Development
 
