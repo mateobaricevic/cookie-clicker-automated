@@ -33,15 +33,27 @@ To avoid saving forever, the buyer prefers targets that are affordable or within
 
 The strategy setting controls how patient the buyer should be. `ROI` favors short waits and pure payoff time, `Balanced` is the default, `Long` is more willing to save for better targets, and `Now` only buys the best currently affordable target.
 
-Building purchases that reach common milestones, such as 10, 25, and every 50 buildings after that, receive a modest score bonus so the buyer is more likely to unlock related achievements and upgrades.
+The buyer keeps part of a Lucky-compatible cookie bank. `ROI` keeps only a small bank, `Balanced` keeps a larger one, `Long` tries to preserve the full Lucky cap, and `Now` ignores strategic banking.
 
-The auto-buyer reserve setting keeps a configurable cookie bank unspent. Reserve levels are based on base CpS, so a `10 min` reserve means the buyer behaves as though 10 minutes of base production is unavailable for purchases.
+During strong golden-cookie or dragon buff windows, the buyer compares expected Lucky payout before and after a purchase. It only spends if the buy does not meaningfully reduce combo payout.
+
+Building purchases that reach common milestones, such as 10, 25, and every 50 buildings after that, receive a score bonus so the buyer is more likely to unlock related achievements and upgrades.
+
+Strategic upgrades receive priority bonuses beyond raw immediate CpS, including kitten upgrades, golden-cookie upgrades, synergy upgrades, seasonal upgrades, clicking upgrades, and broad cookie upgrades. Strategic upgrades with little immediate CpS can still be bought when their long-term category matters.
+
+The auto-buyer reserve setting keeps an additional configurable cookie bank unspent. Reserve levels are based on base CpS, so a `10 min` reserve means the buyer behaves as though 10 minutes of base production is unavailable for purchases.
 
 The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, or when base CpS changes noticeably.
 
-The settings menu shows the current auto-buyer target, whether the addon is ready to buy or waiting, estimated CpS gain, payoff time, active strategy, milestone threshold, and reserve.
+The settings menu shows the current auto-buyer target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, active strategy, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo.
 
-It skips upgrades that do not directly improve CpS, including debug, prestige, and toggle upgrades.
+It skips debug, prestige, and toggle upgrades.
+
+## Grimoire
+
+The Grimoire automation is combo-first. It waits for strong natural buffs such as Frenzy, building specials, dragon buffs, or similarly large CpS multipliers before casting Force the Hand of Fate.
+
+Conjure Baked Goods and sugar-lump refills are reserved for huge combo windows. Wizard tower selling is also limited to huge combo situations and never sells below 30 towers.
 
 ## Development
 

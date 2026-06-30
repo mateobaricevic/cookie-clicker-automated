@@ -23,7 +23,24 @@ CCAutomated.AutoBuyer = {
     lastCookiesPerSecond: 0,
     lastStoreSignature: '',
     refreshMs: 10000,
-    cpsRefreshRatio: 0.05
+    cpsRefreshRatio: 0.05,
+    luckyBankSeconds: 6000,
+    luckyRewardCookiesPerSecond: 900,
+    luckyRewardBankRatio: 0.15,
+    comboPayoutTolerance: 0.995
+};
+CCAutomated.Strategy = {
+    strongBuffMultiplier: 10,
+    hugeBuffMultiplier: 100,
+    minStrategicUpgradeGainSeconds: 60,
+    priorityPatterns: [
+        { pattern: /kitten/i, multiplier: 0.35, label: 'kitten' },
+        { pattern: /lucky day|serendipity|get lucky|golden goose egg|green yeast digestives|arcane sugar|distilled essence of redoubled luck/i, multiplier: 0.45, label: 'golden cookie' },
+        { pattern: /synerg/i, multiplier: 0.55, label: 'synergy' },
+        { pattern: /egg|reindeer|santa|christmas|halloween|valentine|heart|bunny|easter|fool|business/i, multiplier: 0.65, label: 'season' },
+        { pattern: /cursor|mouse|click|finger/i, multiplier: 0.75, label: 'clicking' },
+        { pattern: /biscuit|butter biscuit|macaron|brand biscuit|cookie|fortune/i, multiplier: 0.85, label: 'strategic' }
+    ]
 };
 CCAutomated.AutoClicker = {
     clicksPerTick: 3
@@ -67,10 +84,10 @@ CCAutomated.ConfigData.AutoBuyer = {
 CCAutomated.ConfigData.AutoBuyerStrategy = {
     label: ['ROI', 'Balanced', 'Long', 'Now'],
     strategy: [
-        { maxWaitSeconds: 300, buildingThresholdScoreMultiplier: 1, majorBuildingThresholdScoreMultiplier: 1, allowSaving: true },
-        { maxWaitSeconds: 600, buildingThresholdScoreMultiplier: 0.85, majorBuildingThresholdScoreMultiplier: 0.75, allowSaving: true },
-        { maxWaitSeconds: 1800, buildingThresholdScoreMultiplier: 0.8, majorBuildingThresholdScoreMultiplier: 0.65, allowSaving: true },
-        { maxWaitSeconds: 0, buildingThresholdScoreMultiplier: 0.9, majorBuildingThresholdScoreMultiplier: 0.8, allowSaving: false }
+        { maxWaitSeconds: 300, buildingThresholdScoreMultiplier: 1, majorBuildingThresholdScoreMultiplier: 0.9, allowSaving: true, luckyBankRatio: 0.25 },
+        { maxWaitSeconds: 600, buildingThresholdScoreMultiplier: 0.8, majorBuildingThresholdScoreMultiplier: 0.65, allowSaving: true, luckyBankRatio: 0.5 },
+        { maxWaitSeconds: 1800, buildingThresholdScoreMultiplier: 0.7, majorBuildingThresholdScoreMultiplier: 0.5, allowSaving: true, luckyBankRatio: 1 },
+        { maxWaitSeconds: 0, buildingThresholdScoreMultiplier: 0.9, majorBuildingThresholdScoreMultiplier: 0.8, allowSaving: false, luckyBankRatio: 0 }
     ],
     description: 'Auto-buyer strategy'
 };
@@ -277,11 +294,113 @@ CCAutomated.getCpsMultiplier = function() {
     return multiplier;
 };
 
+CCAutomated.getBuffTimeLeftSeconds = function(buff) {
+    if (!buff || typeof buff.time !== 'number') return 0;
+    if (typeof Game.fps !== 'number' || Game.fps <= 0) return buff.time;
+    return buff.time / Game.fps;
+};
+
+CCAutomated.hasBuffMatching = function(pattern) {
+    if (!Game.buffs) return false;
+
+    for (let buffName in Game.buffs) {
+        if (pattern.test(buffName)) return true;
+    }
+
+    return false;
+};
+
+CCAutomated.getActiveComboBuffInfo = function() {
+    let info = {
+        count: 0,
+        multiplier: CCAutomated.getCpsMultiplier(),
+        hasFrenzy: false,
+        hasClickBuff: false,
+        hasBuildingSpecial: false,
+        hasDragonBuff: false,
+        secondsLeft: 0
+    };
+    if (!Game.buffs) return info;
+
+    for (let buffName in Game.buffs) {
+        let buff = Game.buffs[buffName];
+        let lowerName = buffName.toLowerCase();
+        info.count++;
+        info.secondsLeft = Math.max(info.secondsLeft, CCAutomated.getBuffTimeLeftSeconds(buff));
+        if (lowerName.indexOf('frenzy') !== -1) info.hasFrenzy = true;
+        if (lowerName.indexOf('click') !== -1) info.hasClickBuff = true;
+        if (lowerName.indexOf('dragon') !== -1) info.hasDragonBuff = true;
+        if (lowerName.indexOf('building') !== -1 || lowerName.indexOf('special') !== -1) info.hasBuildingSpecial = true;
+    }
+
+    return info;
+};
+
+CCAutomated.isStrongComboActive = function() {
+    let combo = CCAutomated.getActiveComboBuffInfo();
+    return combo.multiplier >= CCAutomated.Strategy.strongBuffMultiplier || combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff;
+};
+
+CCAutomated.isHugeComboActive = function() {
+    let combo = CCAutomated.getActiveComboBuffInfo();
+    return combo.multiplier >= CCAutomated.Strategy.hugeBuffMultiplier || combo.hasClickBuff;
+};
+
+CCAutomated.getLuckyReward = function(cookies, cookiesPerSecond) {
+    if (typeof cookies !== 'number') cookies = 0;
+    if (typeof cookiesPerSecond !== 'number') cookiesPerSecond = 0;
+    return Math.min(cookies * CCAutomated.AutoBuyer.luckyRewardBankRatio, cookiesPerSecond * CCAutomated.AutoBuyer.luckyRewardCookiesPerSecond) + 13;
+};
+
+CCAutomated.getLuckyBankTarget = function(cookiesPerSecond) {
+    if (typeof cookiesPerSecond !== 'number' || cookiesPerSecond <= 0) return 0;
+    return cookiesPerSecond * CCAutomated.AutoBuyer.luckyBankSeconds;
+};
+
+CCAutomated.getStrategicBankReserveCookies = function() {
+    let strategy = CCAutomated.getAutoBuyerStrategy();
+    let ratio = strategy.luckyBankRatio || 0;
+    if (ratio <= 0) return 0;
+
+    let cps = CCAutomated.isStrongComboActive() ? CCAutomated.getCookiesPerSecond() : CCAutomated.getBaseCookiesPerSecond();
+    return CCAutomated.getLuckyBankTarget(cps) * ratio;
+};
+
 CCAutomated.canUseLumps = function(grimoire) {
     if (typeof Game.canLumps !== 'function' || !Game.canLumps()) return false;
     if (Game.lumps <= 100 || !grimoire.lumpRefill) return false;
     if (!grimoire.lumpRefill.classList) return true;
     return !grimoire.lumpRefill.classList.contains('disabled');
+};
+
+CCAutomated.canCastSpell = function(grimoire, spell) {
+    return grimoire && spell && grimoire.magic >= grimoire.getSpellCost(spell);
+};
+
+CCAutomated.shouldCastForceHandOfFate = function(grimoire, spell) {
+    if (!CCAutomated.canCastSpell(grimoire, spell)) return false;
+
+    let combo = CCAutomated.getActiveComboBuffInfo();
+    if (combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff) return true;
+    if (combo.multiplier >= CCAutomated.Strategy.strongBuffMultiplier) return true;
+
+    return false;
+};
+
+CCAutomated.shouldCastConjureBakedGoods = function(grimoire, spell) {
+    if (!CCAutomated.canCastSpell(grimoire, spell)) return false;
+    return CCAutomated.getCpsMultiplier() >= CCAutomated.Strategy.hugeBuffMultiplier;
+};
+
+CCAutomated.shouldUseLumpForGrimoire = function(grimoire) {
+    return CCAutomated.isHugeComboActive() && CCAutomated.canUseLumps(grimoire);
+};
+
+CCAutomated.shouldSellWizardTowersForCombo = function(grimoire) {
+    if (!CCAutomated.isHugeComboActive()) return false;
+    if (!Game.shimmerTypes || !Game.shimmerTypes['golden'] || Game.shimmerTypes['golden'].n < 2) return false;
+    if (!Game.Objects["Wizard tower"] || Game.Objects["Wizard tower"].amount <= 30) return false;
+    return grimoire && grimoire.magic > 30;
 };
 
 // Handle Wizard towers: Grimoire minigame
@@ -290,17 +409,17 @@ CCAutomated.handleGrimoire = function() {
     if (Game.isMinigameReady(Game.Objects["Wizard tower"])) {
         let grimoire = Game.Objects["Wizard tower"].minigame;
         let spell = grimoire.spells["hand of fate"];
-        if (Game.shimmerTypes['golden'].n && grimoire.magic >= grimoire.getSpellCost(spell) && grimoire.magic / grimoire.magicM >= 0.95) {
+        if (CCAutomated.shouldCastForceHandOfFate(grimoire, spell)) {
             grimoire.castSpell(spell);
         }
-        if (Game.shimmerTypes['golden'].n >= 3 && grimoire.magic > 30) {
+        if (CCAutomated.shouldSellWizardTowersForCombo(grimoire)) {
             let tower = Game.Objects["Wizard tower"];
             tower.sell(tower.amount - 30);
         }
         spell = grimoire.spells["conjure baked goods"];
-        if (CCAutomated.getCpsMultiplier() > 100) {
-            if (grimoire.magic >= grimoire.getSpellCost(spell)) { grimoire.castSpell(spell); return; }
-            if (CCAutomated.canUseLumps(grimoire)) { grimoire.lumpRefill.click(); }
+        if (CCAutomated.getCpsMultiplier() >= CCAutomated.Strategy.hugeBuffMultiplier) {
+            if (CCAutomated.shouldCastConjureBakedGoods(grimoire, spell)) { grimoire.castSpell(spell); return; }
+            if (CCAutomated.shouldUseLumpForGrimoire(grimoire)) { grimoire.lumpRefill.click(); }
         }
     }
 };
@@ -336,7 +455,7 @@ CCAutomated.getAutoBuyerReserveCookies = function() {
 
 CCAutomated.getAutoBuyerSpendableCookies = function(cookies) {
     if (typeof cookies !== 'number') cookies = 0;
-    return Math.max(0, cookies - CCAutomated.getAutoBuyerReserveCookies());
+    return Math.max(0, cookies - CCAutomated.getAutoBuyerReserveCookies() - CCAutomated.getStrategicBankReserveCookies());
 };
 
 CCAutomated.recalculateGains = function() {
@@ -363,6 +482,34 @@ CCAutomated.isUpgradeCandidate = function(upgrade) {
     if (upgrade.pool === 'toggle' || upgrade.pool === 'debug' || upgrade.pool === 'prestige') return false;
     if (upgrade.unlocked === 0 || upgrade.unlocked === false) return false;
     return true;
+};
+
+CCAutomated.getUpgradePriority = function(upgrade) {
+    let priority = {
+        multiplier: 1,
+        label: ''
+    };
+    if (!upgrade || !upgrade.name) return priority;
+
+    for (let i = 0; i < CCAutomated.Strategy.priorityPatterns.length; i++) {
+        let entry = CCAutomated.Strategy.priorityPatterns[i];
+        if (entry.pattern.test(upgrade.name)) {
+            priority.multiplier = entry.multiplier;
+            priority.label = entry.label;
+            return priority;
+        }
+    }
+
+    return priority;
+};
+
+CCAutomated.getStrategicUpgradeMinimumGain = function(upgrade) {
+    let priority = CCAutomated.getUpgradePriority(upgrade);
+    if (!priority.label) return 0;
+
+    let cps = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
+    if (cps <= 0) return 1;
+    return cps / CCAutomated.Strategy.minStrategicUpgradeGainSeconds;
 };
 
 CCAutomated.getAutoBuyerScore = function(price, gain, cookies, cookiesPerSecond) {
@@ -514,8 +661,10 @@ CCAutomated.getAutoBuyerCandidates = function() {
                 name: object.name,
                 price: price,
                 gain: gain,
+                realGain: gain,
                 affordable: price <= spendableCookies,
                 threshold: threshold,
+                priority: threshold ? 'milestone' : '',
                 waitSeconds: waitSeconds,
                 score: score
             });
@@ -530,11 +679,15 @@ CCAutomated.getAutoBuyerCandidates = function() {
             let upgradePrice = CCAutomated.getUpgradePrice(upgrade);
             if (!isFinite(upgradePrice) || upgradePrice <= 0) continue;
 
-            let upgradeGain = CCAutomated.estimateUpgradeCpsGain(upgrade);
+            let realUpgradeGain = CCAutomated.estimateUpgradeCpsGain(upgrade);
+            let upgradeGain = realUpgradeGain;
+            let priority = CCAutomated.getUpgradePriority(upgrade);
+            if (upgradeGain <= 0) upgradeGain = CCAutomated.getStrategicUpgradeMinimumGain(upgrade);
             if (upgradeGain <= 0) continue;
 
             let upgradeScore = CCAutomated.getAutoBuyerScore(upgradePrice, upgradeGain, spendableCookies, cookiesPerSecond);
             if (!isFinite(upgradeScore)) continue;
+            upgradeScore *= priority.multiplier;
             let upgradeWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(upgradePrice, spendableCookies, cookiesPerSecond);
 
             candidates.push({
@@ -544,7 +697,9 @@ CCAutomated.getAutoBuyerCandidates = function() {
                 name: upgrade.name,
                 price: upgradePrice,
                 gain: upgradeGain,
+                realGain: realUpgradeGain,
                 affordable: upgradePrice <= spendableCookies,
+                priority: priority.label,
                 waitSeconds: upgradeWaitSeconds,
                 score: upgradeScore
             });
@@ -562,8 +717,9 @@ CCAutomated.getBestAutoBuyerCandidate = function() {
     let bestWithinWait = null;
 
     for (let i = 0; i < candidates.length; i++) {
+        let purchaseReady = candidates[i].affordable && CCAutomated.canBuyDuringCombo(candidates[i]);
         if (!best || candidates[i].score < best.score) best = candidates[i];
-        if (candidates[i].affordable && (!bestAffordable || candidates[i].score < bestAffordable.score)) bestAffordable = candidates[i];
+        if (purchaseReady && (!bestAffordable || candidates[i].score < bestAffordable.score)) bestAffordable = candidates[i];
         if (candidates[i].waitSeconds <= strategy.maxWaitSeconds && (!bestWithinWait || candidates[i].score < bestWithinWait.score)) bestWithinWait = candidates[i];
     }
 
@@ -600,6 +756,36 @@ CCAutomated.updateAutoBuyerTargetPrice = function(candidate) {
     return candidate;
 };
 
+CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase = function(candidate) {
+    if (!candidate) return null;
+
+    let cookies = typeof Game.cookies === 'number' ? Game.cookies : 0;
+    let currentCookiesPerSecond = CCAutomated.getCookiesPerSecond();
+    let realGain = typeof candidate.realGain === 'number' ? candidate.realGain : candidate.gain;
+    let buffMultiplier = CCAutomated.getCpsMultiplier();
+    let afterCookies = Math.max(0, cookies - candidate.price);
+    let afterCookiesPerSecond = currentCookiesPerSecond + (realGain * buffMultiplier);
+
+    return {
+        before: CCAutomated.getLuckyReward(cookies, currentCookiesPerSecond),
+        after: CCAutomated.getLuckyReward(afterCookies, afterCookiesPerSecond)
+    };
+};
+
+CCAutomated.canBuyDuringCombo = function(candidate) {
+    if (!CCAutomated.isStrongComboActive()) return true;
+    if (!candidate || !candidate.affordable) return false;
+
+    let payout = CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase(candidate);
+    if (!payout) return false;
+
+    if (CCAutomated.isHugeComboActive() && candidate.priority !== 'clicking') {
+        return payout.after >= payout.before;
+    }
+
+    return payout.after >= payout.before * CCAutomated.AutoBuyer.comboPayoutTolerance;
+};
+
 CCAutomated.getAutoBuyerStatusText = function() {
     if (CCAutomated.Config.AutoBuyer === 0) return 'Auto-buyer target: inactive';
 
@@ -613,17 +799,23 @@ CCAutomated.getAutoBuyerStatusText = function() {
     let spendableCookies = CCAutomated.getAutoBuyerSpendableCookies(cookies);
     let cookiesPerSecond = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
     let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, spendableCookies, cookiesPerSecond);
-    let payoffSeconds = candidate.gain > 0 ? candidate.price / candidate.gain : Infinity;
+    let displayGain = typeof candidate.realGain === 'number' ? candidate.realGain : candidate.gain;
+    let payoffSeconds = displayGain > 0 ? candidate.price / displayGain : Infinity;
     let action = candidate.affordable ? 'ready' : 'waiting ' + CCAutomated.formatAutoBuyerTime(waitSeconds);
     let reserveSeconds = CCAutomated.getAutoBuyerReserveSeconds();
     let strategyLabel = CCAutomated.ConfigData.AutoBuyerStrategy.label[CCAutomated.Config.AutoBuyerStrategy || 0];
     let strategyText = strategyLabel ? ', ' + strategyLabel : '';
-    let gainText = ', +' + CCAutomated.formatAutoBuyerNumber(candidate.gain) + ' CpS';
-    let payoffText = ', payoff ' + CCAutomated.formatAutoBuyerTime(payoffSeconds);
+    let gainText = ', +' + CCAutomated.formatAutoBuyerNumber(displayGain) + ' CpS';
+    let payoffText = displayGain > 0 ? ', payoff ' + CCAutomated.formatAutoBuyerTime(payoffSeconds) : '';
     let thresholdText = candidate.threshold ? ', threshold ' + candidate.threshold : '';
+    let priorityText = candidate.priority ? ', ' + candidate.priority : '';
     let reserveText = reserveSeconds ? ', reserve ' + CCAutomated.formatAutoBuyerTime(reserveSeconds) : '';
+    let bankReserve = CCAutomated.getStrategicBankReserveCookies();
+    let bankText = bankReserve ? ', bank ' + CCAutomated.formatAutoBuyerNumber(bankReserve) : '';
+    let comboText = CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate) ? ', holding for combo' : '';
+    if (displayGain === 0 && candidate.priority) gainText = ', strategic';
 
-    return 'Auto-buyer target: ' + candidate.name + ' (' + candidate.type + ', ' + action + strategyText + gainText + payoffText + thresholdText + reserveText + ')';
+    return 'Auto-buyer target: ' + candidate.name + ' (' + candidate.type + ', ' + action + strategyText + gainText + payoffText + thresholdText + priorityText + reserveText + bankText + comboText + ')';
 };
 
 CCAutomated.shouldRefreshAutoBuyerTarget = function() {
@@ -650,16 +842,19 @@ CCAutomated.refreshAutoBuyerTarget = function() {
 
 CCAutomated.buyAutoBuyerCandidate = function(candidate) {
     if (!candidate || !candidate.affordable) return false;
+    if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
 
     try {
         if (candidate.type === 'building' && candidate.item && typeof candidate.item.buy === 'function') {
             if (CCAutomated.getObjectPrice(candidate.item) > CCAutomated.getAutoBuyerSpendableCookies(Game.cookies)) return false;
+            if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
             candidate.item.buy(1);
             return true;
         }
         if (candidate.type === 'upgrade' && candidate.item && typeof candidate.item.buy === 'function') {
             if (CCAutomated.getUpgradePrice(candidate.item) > CCAutomated.getAutoBuyerSpendableCookies(Game.cookies)) return false;
             if (typeof candidate.item.canBuy === 'function' && !candidate.item.canBuy()) return false;
+            if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
             candidate.item.buy();
             return true;
         }
