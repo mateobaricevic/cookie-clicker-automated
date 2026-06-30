@@ -20,6 +20,7 @@ javascript: (function () {
 
 - Big Cookie auto-clicker.
 - Golden Cookie auto-clicker.
+- Combo dashboard for active buffs, golden cookie shimmers, Lucky bank, and payout status.
 - Wrinkler popping automation.
 - Wizard tower Grimoire automation for selected spell timing.
 - Garden automation for mature Bakeberry, Queenbeet, and Duketater combo harvests.
@@ -59,11 +60,17 @@ The settings menu shows whether you should ascend now, how many prestige levels 
 
 The addon recommends the first ascension at `+365` prestige levels. After that, it recommends ascending when the pending prestige gain is at least `10%` of your current prestige level, with a minimum of `+100` prestige levels.
 
+## Combo
+
+The settings menu shows a combo dashboard under the Golden Cookies setting. It displays active buff count, current CpS multiplier, remaining combo time, visible golden cookie shimmers, Lucky bank progress, and current versus max Lucky payout.
+
 ## Grimoire
 
 The Grimoire automation is combo-first. It waits for strong natural buffs such as Frenzy, building specials, dragon buffs, or similarly large CpS multipliers before casting Force the Hand of Fate.
 
-Conjure Baked Goods and sugar-lump refills are reserved for huge combo windows. Wizard tower selling is also limited to huge combo situations and never sells below 30 towers.
+Force the Hand of Fate is held while a golden cookie shimmer is already visible. Conjure Baked Goods and sugar-lump refills are reserved for huge combo windows. Wizard tower selling is also limited to huge combo situations and never sells below 30 towers.
+
+The settings menu shows Grimoire status under the Grimoire setting, including magic, Force the Hand of Fate cost, combo state, and whether a visible golden cookie is blocking a cast.
 
 ## Garden
 

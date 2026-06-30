@@ -12,14 +12,15 @@ These notes collect strategy and quality-of-life ideas for future implementation
    - Later: add planting and mutation planning.
 
 2. Combo dashboard and Golden Cookie banking
-   - Show current Lucky bank target, current bank status, and whether spending would reduce Lucky payout.
-   - Display active buff multiplier and combo time remaining.
-   - Improve handling for cookie storms, cookie chains, and stacked golden cookie windows.
+   - Done: show current Lucky bank target, current bank status, and whether spending above the Lucky bank is safe.
+   - Done: display active buff multiplier and combo time remaining.
+   - Done: show visible golden cookie shimmers, including storm drops and forced shimmers.
+   - Later: add special handling for cookie chains and stacked golden cookie edge cases.
 
 3. Stronger Grimoire logic
-   - Detect existing golden cookies before casting Force the Hand of Fate.
-   - Add safer dual-cast support using wizard tower selling thresholds.
-   - Show magic readiness and expected combo state in the settings panel.
+   - Done: detect existing golden cookies before casting Force the Hand of Fate.
+   - Done: show magic readiness and expected combo state in the settings panel.
+   - Later: add safer dual-cast support using wizard tower selling thresholds.
    - Consider tracking spell count and season state for predictable Force the Hand of Fate outcomes.
 
 4. Pantheon strategy helper

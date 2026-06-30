@@ -234,10 +234,12 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   };
   for (let config in CCAutomated.ConfigDefault) {
     subsection.appendChild(listing(config));
-    if (config === "Garden") subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   }
-  subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.grimoireStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
 
   let menu = l("menu");
   let menuContent = menu && menu.childNodes[2];
@@ -245,13 +247,12 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   menuContent.insertBefore(frag, menuContent.childNodes[menuContent.childNodes.length - 1]);
 };
 
-CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
+CCAutomated.ConfigDisplay.statusPanel = function (status) {
   let div = document.createElement("div");
   div.className = "listing";
   div.style.opacity = "0.75";
   div.style.lineHeight = "140%";
 
-  let status = CCAutomated.getAutoBuyerStatus();
   let title = document.createElement("div");
   title.style.fontWeight = "bold";
   title.style.marginBottom = "2px";
@@ -277,74 +278,26 @@ CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
   }
 
   return div;
+};
+
+CCAutomated.ConfigDisplay.comboStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getComboStatus());
+};
+
+CCAutomated.ConfigDisplay.grimoireStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getGrimoireStatus());
 };
 
 CCAutomated.ConfigDisplay.gardenStatus = function () {
-  let div = document.createElement("div");
-  div.className = "listing";
-  div.style.opacity = "0.75";
-  div.style.lineHeight = "140%";
-
-  let status = CCAutomated.getGardenStatus();
-  let title = document.createElement("div");
-  title.style.fontWeight = "bold";
-  title.style.marginBottom = "2px";
-  title.textContent = status.title;
-  div.appendChild(title);
-
-  for (let i = 0; i < status.lines.length; i++) {
-    let line = document.createElement("div");
-    line.style.display = "grid";
-    line.style.gridTemplateColumns = "74px 1fr";
-    line.style.columnGap = "8px";
-
-    let label = document.createElement("span");
-    label.style.opacity = "0.7";
-    label.textContent = status.lines[i].label;
-    line.appendChild(label);
-
-    let value = document.createElement("span");
-    value.textContent = status.lines[i].value;
-    line.appendChild(value);
-
-    div.appendChild(line);
-  }
-
-  return div;
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getGardenStatus());
 };
 
 CCAutomated.ConfigDisplay.ascensionStatus = function () {
-  let div = document.createElement("div");
-  div.className = "listing";
-  div.style.opacity = "0.75";
-  div.style.lineHeight = "140%";
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAscensionStatus());
+};
 
-  let status = CCAutomated.getAscensionStatus();
-  let title = document.createElement("div");
-  title.style.fontWeight = "bold";
-  title.style.marginBottom = "2px";
-  title.textContent = status.title;
-  div.appendChild(title);
-
-  for (let i = 0; i < status.lines.length; i++) {
-    let line = document.createElement("div");
-    line.style.display = "grid";
-    line.style.gridTemplateColumns = "74px 1fr";
-    line.style.columnGap = "8px";
-
-    let label = document.createElement("span");
-    label.style.opacity = "0.7";
-    label.textContent = status.lines[i].label;
-    line.appendChild(label);
-
-    let value = document.createElement("span");
-    value.textContent = status.lines[i].value;
-    line.appendChild(value);
-
-    div.appendChild(line);
-  }
-
-  return div;
+CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAutoBuyerStatus());
 };
 
 if (!CCAutomated.ConfigBackup.UpdateMenu) CCAutomated.ConfigBackup.UpdateMenu = Game.UpdateMenu;
@@ -495,6 +448,32 @@ CCAutomated.hasBuffMatching = function (pattern) {
   return false;
 };
 
+CCAutomated.getGoldenShimmerInfo = function () {
+  let info = {
+    total: 0,
+    regular: 0,
+    stormDrops: 0,
+    forced: 0,
+  };
+  if (!Game.shimmers) return info;
+
+  for (let i = 0; i < Game.shimmers.length; i++) {
+    let shimmer = Game.shimmers[i];
+    if (!shimmer || shimmer.type !== "golden" || shimmer.life <= 0) continue;
+
+    info.total++;
+    if (shimmer.force === "cookie storm drop") info.stormDrops++;
+    else info.regular++;
+    if (shimmer.force) info.forced++;
+  }
+
+  return info;
+};
+
+CCAutomated.hasActiveGoldenShimmer = function () {
+  return CCAutomated.getGoldenShimmerInfo().total > 0;
+};
+
 CCAutomated.getActiveComboBuffInfo = function () {
   let info = {
     count: 0,
@@ -571,11 +550,12 @@ CCAutomated.canUseLumps = function (grimoire) {
 };
 
 CCAutomated.canCastSpell = function (grimoire, spell) {
-  return grimoire && spell && grimoire.magic >= grimoire.getSpellCost(spell);
+  return grimoire && spell && grimoire.magic >= CCAutomated.getSpellCost(grimoire, spell);
 };
 
 CCAutomated.shouldCastForceHandOfFate = function (grimoire, spell) {
   if (!CCAutomated.canCastSpell(grimoire, spell)) return false;
+  if (CCAutomated.hasActiveGoldenShimmer()) return false;
 
   let combo = CCAutomated.getActiveComboBuffInfo();
   if (combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff) return true;
@@ -803,11 +783,18 @@ CCAutomated.handleGarden = function () {
   }
 };
 
+CCAutomated.getGrimoire = function () {
+  let tower = Game.Objects && Game.Objects["Wizard tower"];
+  if (!tower) return null;
+  if (typeof Game.isMinigameReady === "function" && !Game.isMinigameReady(tower)) return null;
+  return tower.minigame || null;
+};
+
 // Handle Wizard towers: Grimoire minigame
 CCAutomated.handleGrimoire = function () {
   if (CCAutomated.Config.Grimoire === 0) return;
-  if (Game.isMinigameReady(Game.Objects["Wizard tower"])) {
-    let grimoire = Game.Objects["Wizard tower"].minigame;
+  let grimoire = CCAutomated.getGrimoire();
+  if (grimoire) {
     let spell = grimoire.spells["hand of fate"];
     if (CCAutomated.shouldCastForceHandOfFate(grimoire, spell)) {
       grimoire.castSpell(spell);
@@ -1324,6 +1311,137 @@ CCAutomated.makeStatusLine = function (label, parts) {
   return {
     label: label,
     value: value,
+  };
+};
+
+CCAutomated.formatComboMultiplier = function (multiplier) {
+  if (!isFinite(multiplier)) return "?";
+  if (multiplier >= 100) return CCAutomated.formatAutoBuyerNumber(multiplier) + "x";
+  if (multiplier >= 10) return Math.round(multiplier * 10) / 10 + "x";
+  return Math.round(multiplier * 100) / 100 + "x";
+};
+
+CCAutomated.getComboStatusText = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  if (CCAutomated.isHugeComboActive()) return "Huge combo";
+  if (CCAutomated.isStrongComboActive()) return "Strong combo";
+  if (combo.count > 0) return "Buff active";
+  return "Idle";
+};
+
+CCAutomated.getLuckyBankStatusText = function () {
+  let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
+  let cookiesPerSecond = CCAutomated.isStrongComboActive()
+    ? CCAutomated.getCookiesPerSecond()
+    : CCAutomated.getBaseCookiesPerSecond();
+  let target = CCAutomated.getLuckyBankTarget(cookiesPerSecond);
+  let currentLuckyReward = CCAutomated.getLuckyReward(cookies, cookiesPerSecond);
+  let maxLuckyReward = CCAutomated.getLuckyReward(target, cookiesPerSecond);
+  let shortfall = Math.max(0, target - cookies);
+
+  return {
+    target: target,
+    reward: currentLuckyReward,
+    maxReward: maxLuckyReward,
+    text:
+      shortfall > 0
+        ? "Need " + CCAutomated.formatAutoBuyerNumber(shortfall) + " for max Lucky"
+        : "Can spend above Lucky bank",
+  };
+};
+
+CCAutomated.getComboStatus = function () {
+  let combo = CCAutomated.getActiveComboBuffInfo();
+  let shimmers = CCAutomated.getGoldenShimmerInfo();
+  let lucky = CCAutomated.getLuckyBankStatusText();
+  let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
+  let shimmerText = shimmers.total + " visible";
+  if (shimmers.stormDrops > 0) shimmerText += ", " + shimmers.stormDrops + " storm drops";
+  if (shimmers.forced > 0) shimmerText += ", " + shimmers.forced + " forced";
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [CCAutomated.getComboStatusText(combo)]),
+    CCAutomated.makeStatusLine("Buffs", [combo.count + " active", CCAutomated.formatComboMultiplier(combo.multiplier)]),
+    CCAutomated.makeStatusLine("Time", [
+      combo.secondsLeft > 0 ? CCAutomated.formatAutoBuyerDuration(combo.secondsLeft) : "No active combo",
+    ]),
+    CCAutomated.makeStatusLine("Golden", [shimmerText]),
+    CCAutomated.makeStatusLine("Bank", [
+      CCAutomated.formatAutoBuyerNumber(cookies) + " / " + CCAutomated.formatAutoBuyerNumber(lucky.target),
+      lucky.text,
+    ]),
+    CCAutomated.makeStatusLine("Lucky", [
+      CCAutomated.formatAutoBuyerNumber(lucky.reward) + " now",
+      CCAutomated.formatAutoBuyerNumber(lucky.maxReward) + " max",
+    ]),
+  ];
+
+  return {
+    title: "Combo",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
+};
+
+CCAutomated.getSpellCost = function (grimoire, spell) {
+  if (!grimoire || !spell || typeof grimoire.getSpellCost !== "function") return Infinity;
+  try {
+    return grimoire.getSpellCost(spell);
+  } catch (e) {
+    return Infinity;
+  }
+};
+
+CCAutomated.getGrimoireStatus = function () {
+  if (CCAutomated.Config.Grimoire === 0) {
+    return {
+      title: "Grimoire",
+      lines: [{ label: "Status", value: "Inactive" }],
+    };
+  }
+
+  let grimoire = CCAutomated.getGrimoire();
+  if (!grimoire) {
+    return {
+      title: "Grimoire",
+      lines: [{ label: "Status", value: "Wizard tower minigame not ready" }],
+    };
+  }
+
+  let spell = grimoire.spells && grimoire.spells["hand of fate"];
+  let cost = CCAutomated.getSpellCost(grimoire, spell);
+  let magic = typeof grimoire.magic === "number" ? grimoire.magic : 0;
+  let maxMagic = typeof grimoire.magicM === "number" ? grimoire.magicM : null;
+  let combo = CCAutomated.getActiveComboBuffInfo();
+  let shimmers = CCAutomated.getGoldenShimmerInfo();
+  let canAfford = magic >= cost;
+  let statusText = "Waiting for combo";
+
+  if (!spell) statusText = "Force the Hand of Fate unavailable";
+  else if (!canAfford) statusText = "Need magic";
+  else if (shimmers.total > 0) statusText = "Blocked by visible golden cookie";
+  else if (CCAutomated.isStrongComboActive()) statusText = "Ready to cast";
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Magic", [
+      CCAutomated.formatAutoBuyerNumber(magic) +
+        (maxMagic !== null ? " / " + CCAutomated.formatAutoBuyerNumber(maxMagic) : ""),
+      isFinite(cost) ? "FtHoF costs " + CCAutomated.formatAutoBuyerNumber(cost) : "",
+    ]),
+    CCAutomated.makeStatusLine("Combo", [
+      CCAutomated.getComboStatusText(combo),
+      CCAutomated.formatComboMultiplier(combo.multiplier),
+    ]),
+    CCAutomated.makeStatusLine("Golden", [shimmers.total > 0 ? shimmers.total + " visible" : "None visible"]),
+  ];
+
+  return {
+    title: "Grimoire",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
   };
 };
 
