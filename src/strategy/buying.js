@@ -185,6 +185,12 @@ CCAutomated.getAutoBuyerBuildingPlanLabel = function (object, amount) {
   return object.name + " x" + amount;
 };
 
+CCAutomated.getAutoBuyerBuildingChainPlanLabel = function (object, amount, upgrade, targetAmount) {
+  let label = CCAutomated.getAutoBuyerBuildingPlanLabel(object, amount);
+  if (!upgrade || !upgrade.name) return label;
+  return label + " toward " + upgrade.name + (targetAmount ? " at " + targetAmount : "");
+};
+
 CCAutomated.getAutoBuyerStoreSignature = function () {
   let storeSignature = "";
 
@@ -237,6 +243,46 @@ CCAutomated.estimateBuildingCpsGain = function (object, amount) {
   return Math.max(0, gain);
 };
 
+CCAutomated.estimateAutoBuyerChainCpsGain = function (requirements, upgrade) {
+  if (!upgrade || !requirements || requirements.length <= 0) return 0;
+
+  let originalBought = upgrade.bought;
+  let originalStates = [];
+  let originalCps = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
+  let gain = 0;
+
+  try {
+    for (let i = 0; i < requirements.length; i++) {
+      let requirement = requirements[i];
+      if (!requirement.object || typeof requirement.object.amount !== "number") continue;
+
+      originalStates.push({
+        object: requirement.object,
+        amount: requirement.object.amount,
+        bought: requirement.object.bought,
+      });
+      requirement.object.amount = Math.max(requirement.object.amount, requirement.targetAmount);
+      if (typeof requirement.object.bought === "number")
+        requirement.object.bought = Math.max(requirement.object.bought, requirement.targetAmount);
+    }
+
+    upgrade.bought = 1;
+    CCAutomated.recalculateGains();
+    gain = CCAutomated.getAutoBuyerPlanningCookiesPerSecond() - originalCps;
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to estimate chain purchase", upgrade.name, e);
+  } finally {
+    for (let i = 0; i < originalStates.length; i++) {
+      originalStates[i].object.amount = originalStates[i].amount;
+      if (typeof originalStates[i].bought !== "undefined") originalStates[i].object.bought = originalStates[i].bought;
+    }
+    upgrade.bought = originalBought;
+    CCAutomated.recalculateGains();
+  }
+
+  return Math.max(0, gain);
+};
+
 CCAutomated.getAutoBuyerBuildingCandidate = function (object, amount, spendableCookies, cookiesPerSecond) {
   amount = Math.max(1, Math.floor(amount || 1));
   let price = CCAutomated.getBuildingBatchPrice(object, amount);
@@ -271,6 +317,143 @@ CCAutomated.getAutoBuyerBuildingCandidate = function (object, amount, spendableC
     payoffSeconds: price / gain,
     score: score,
   };
+};
+
+CCAutomated.isLockedAutoBuyerChainUpgrade = function (upgrade) {
+  if (!upgrade || upgrade.bought || upgrade.unlocked) return false;
+  if (upgrade.pool === "toggle" || upgrade.pool === "debug" || upgrade.pool === "prestige" || upgrade.pool === "tech")
+    return false;
+  if (upgrade.priceLumps > 0) return false;
+  return true;
+};
+
+CCAutomated.getAutoBuyerChainUpgradeRequirements = function (upgrade) {
+  if (!CCAutomated.isLockedAutoBuyerChainUpgrade(upgrade)) return [];
+  if (!Game.Tiers || !upgrade.tier || !Game.Tiers[upgrade.tier]) return [];
+
+  let tier = Game.Tiers[upgrade.tier];
+  let requirements = [];
+
+  if (upgrade.buildingTie && !tier.special && tier.unlock > 0) {
+    requirements.push({
+      object: upgrade.buildingTie,
+      targetAmount: tier.unlock,
+    });
+  } else if (upgrade.buildingTie1 && upgrade.buildingTie2 && tier.special && tier.unlock > 0) {
+    if (tier.req && typeof Game.Has === "function" && !Game.Has(tier.req)) return [];
+    requirements.push({
+      object: upgrade.buildingTie1,
+      targetAmount: tier.unlock,
+    });
+    requirements.push({
+      object: upgrade.buildingTie2,
+      targetAmount: tier.unlock,
+    });
+  }
+
+  return requirements.filter(function (requirement) {
+    return requirement.object && typeof requirement.object.amount === "number" && requirement.object.amount < requirement.targetAmount;
+  });
+};
+
+CCAutomated.getAutoBuyerChainBuildingPrice = function (requirements) {
+  let price = 0;
+
+  for (let i = 0; i < requirements.length; i++) {
+    let requirement = requirements[i];
+    let amount = requirement.targetAmount - requirement.object.amount;
+    let requirementPrice = CCAutomated.getBuildingBatchPrice(requirement.object, amount);
+    if (!isFinite(requirementPrice) || requirementPrice <= 0) return Infinity;
+    price += requirementPrice;
+  }
+
+  return price;
+};
+
+CCAutomated.getAutoBuyerChainCandidatesForUpgrade = function (upgrade, spendableCookies, cookiesPerSecond) {
+  let candidates = [];
+  let requirements = CCAutomated.getAutoBuyerChainUpgradeRequirements(upgrade);
+  if (requirements.length <= 0) return candidates;
+
+  let upgradePrice = CCAutomated.getUpgradePrice(upgrade);
+  if (!isFinite(upgradePrice) || upgradePrice <= 0) return candidates;
+
+  let chainBuildingPrice = CCAutomated.getAutoBuyerChainBuildingPrice(requirements);
+  if (!isFinite(chainBuildingPrice) || chainBuildingPrice <= 0) return candidates;
+
+  let chainPrice = chainBuildingPrice + upgradePrice;
+  let chainWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(chainPrice, spendableCookies, cookiesPerSecond);
+  if (chainPrice > spendableCookies && chainWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds) return candidates;
+
+  let chainGain = CCAutomated.estimateAutoBuyerChainCpsGain(requirements, upgrade);
+  let priority = CCAutomated.getUpgradePriority(upgrade);
+  if (chainGain <= 0) chainGain = CCAutomated.getStrategicUpgradeMinimumGain(upgrade);
+  if (chainGain <= 0) return candidates;
+
+  let score = CCAutomated.getAutoBuyerScore(chainPrice, chainGain, spendableCookies, cookiesPerSecond);
+  if (!isFinite(score)) return candidates;
+  score *= priority.multiplier;
+
+  for (let i = 0; i < requirements.length; i++) {
+    let requirement = requirements[i];
+    let missingAmount = requirement.targetAmount - requirement.object.amount;
+    let stepAmount = Math.min(100, missingAmount);
+    let stepPrice = CCAutomated.getBuildingBatchPrice(requirement.object, stepAmount);
+    if (!isFinite(stepPrice) || stepPrice <= 0) continue;
+
+    let stepWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(stepPrice, spendableCookies, cookiesPerSecond);
+    if (stepPrice > spendableCookies && stepWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds) continue;
+
+    let stepGain = CCAutomated.estimateBuildingCpsGain(requirement.object, stepAmount);
+
+    candidates.push({
+      type: "building",
+      id: CCAutomated.getAutoBuyerCandidateId("chain", upgrade) + ":" + requirement.object.id + ":x" + stepAmount,
+      item: requirement.object,
+      name: requirement.object.name,
+      planLabel: CCAutomated.getAutoBuyerBuildingChainPlanLabel(
+        requirement.object,
+        stepAmount,
+        upgrade,
+        requirement.targetAmount,
+      ),
+      amount: stepAmount,
+      price: stepPrice,
+      gain: chainGain,
+      realGain: stepGain,
+      chainPrice: chainPrice,
+      chainGain: chainGain,
+      chainUpgradeName: upgrade.name,
+      chainTargetAmount: requirement.targetAmount,
+      affordable: stepPrice <= spendableCookies,
+      priority: priority.label || "chain",
+      waitSeconds: stepWaitSeconds,
+      payoffSeconds: chainPrice / chainGain,
+      score: score,
+    });
+  }
+
+  return candidates;
+};
+
+CCAutomated.getAutoBuyerChainCandidates = function (spendableCookies, cookiesPerSecond) {
+  let candidates = [];
+  if (!Game.UpgradesById) return candidates;
+
+  for (let i = 0; i < Game.UpgradesById.length; i++) {
+    let upgrade = Game.UpgradesById[i];
+    let upgradeCandidates = CCAutomated.getAutoBuyerChainCandidatesForUpgrade(
+      upgrade,
+      spendableCookies,
+      cookiesPerSecond,
+    );
+
+    for (let j = 0; j < upgradeCandidates.length; j++) {
+      candidates.push(upgradeCandidates[j]);
+    }
+  }
+
+  return candidates;
 };
 
 CCAutomated.estimateUpgradeCpsGain = function (upgrade) {
@@ -356,6 +539,11 @@ CCAutomated.getAutoBuyerCandidates = function () {
     }
   }
 
+  let chainCandidates = CCAutomated.getAutoBuyerChainCandidates(spendableCookies, cookiesPerSecond);
+  for (let k = 0; k < chainCandidates.length; k++) {
+    candidates.push(chainCandidates[k]);
+  }
+
   return candidates;
 };
 
@@ -402,6 +590,11 @@ CCAutomated.getBestAutoBuyerCandidate = function () {
 CCAutomated.isAutoBuyerTargetValid = function (candidate) {
   if (!candidate || !candidate.item) return false;
 
+  if (candidate.chainUpgradeName) {
+    let chainUpgrade = Game.Upgrades && Game.Upgrades[candidate.chainUpgradeName];
+    if (!chainUpgrade || chainUpgrade.bought || chainUpgrade.unlocked) return false;
+  }
+
   if (candidate.type === "building") {
     return isFinite(CCAutomated.getObjectPrice(candidate.item));
   }
@@ -429,7 +622,7 @@ CCAutomated.updateAutoBuyerTargetPrice = function (candidate) {
     spendableCookies,
     CCAutomated.getAutoBuyerPlanningCookiesPerSecond(),
   );
-  if (candidate.gain > 0) candidate.payoffSeconds = candidate.price / candidate.gain;
+  if (candidate.gain > 0) candidate.payoffSeconds = (candidate.chainPrice || candidate.price) / candidate.gain;
   return candidate;
 };
 

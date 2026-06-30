@@ -14,6 +14,7 @@ Implemented areas:
 - Pantheon helper for Godzamok click-combo selling and Skruuia-aware Wrinkler popping.
 - Ascension status using a first-ascension target and repeat-ascension gain threshold.
 - Auto-buyer Planning v2 for buy-1, buy-10, and buy-100 building plans, batch milestone scoring, and top-plan status display.
+- Auto-buyer chain planning for locked tiered and synergy upgrades, scored as full plans while buying the next prerequisite building batch.
 
 The project is now past the baseline automation phase. The highest-value work should improve decision quality, surface richer planning data, and add safety checks around irreversible or high-cost actions.
 
@@ -28,26 +29,26 @@ The project is now past the baseline automation phase. The highest-value work sh
 
 ## Best Next Improvement
 
-Implement **Auto-buyer chain planning** next.
+Implement **Ascension checklist** next.
 
 Why this should come before Stock Market automation:
 
-- It improves every run, even before Bank level 1 or active Stock Market play.
-- The current buyer already has the needed foundation: payoff scoring, reserves, combo safety, strategic priorities, and status display.
-- The remaining known weakness is prerequisite chains that unlock strong follow-up upgrades.
-- It aligns with proven addon ideas from Cookie Monster and Frozen Cookies without needing to copy their code or UI.
+- It protects high-value, easy-to-forget reset steps before irreversible ascension.
+- The current ascension status already has the core target logic and menu surface.
+- It is safer than automating resets because the first implementation can be read-only guidance.
 
-Scope for the chain implementation:
+Scope for the checklist implementation:
 
-- Detect upgrade chains where buying buildings to a threshold unlocks a high-priority upgrade.
-- Score the chain as one plan while buying the next prerequisite step.
-- Add optional effective Golden Cookie value to scoring, especially for golden-cookie upgrades and banks.
-- Track "why not bought" reasons in status: reserve, combo payout risk, too long to wait, cannot buy, or candidate invalid.
+- Show pending prestige, target prestige, ETA, and next likely heavenly upgrade category.
+- Recommend permanent upgrade slot candidates, especially the highest owned kitten upgrades.
+- Warn when Chocolate Egg is available and worth delaying until after building sales.
+- Warn when Wrinklers are attached, combo Garden plants are mature, or seasonal drops are incomplete.
+- Show prestige digit hints for Lucky Digit, Lucky Number, and Lucky Payout when those upgrades are not owned.
 
 ## Suggested Implementation Order
 
 1. Done: Auto-buyer Planning v2: buy-10/buy-100 candidates, top candidate list, clearer payoff/status reporting.
-2. Auto-buyer chain planning: building thresholds, upgrade unlock prerequisites, and strategic chain target display.
+2. Done: Auto-buyer chain planning: building thresholds, upgrade unlock prerequisites, and strategic chain target display.
 3. Ascension checklist: pre-ascend safety panel for Wrinklers, Garden harvests, Chocolate Egg, permanent upgrade slot suggestions, lucky-prestige digits, and save export.
 4. Stock Market advisor: read-only dashboard with resting values, buy/sell bands, broker overhead, capacity, profit progress, and loan readiness.
 5. Grimoire planner: deterministic Force the Hand of Fate preview, season-aware outcome variants, spell count display, and safer dual-cast thresholds.

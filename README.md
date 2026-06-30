@@ -38,6 +38,8 @@ The auto-buyer checks visible buildings and store upgrades, estimates how much e
 
 For buildings, the buyer compares buy-1, buy-10, and buy-100 plans when the batch is affordable or within the selected wait window. Batch prices use Cookie Clicker's own price helpers when available, and batch CpS gains are estimated before scoring.
 
+The buyer can also plan toward locked tiered and synergy upgrades. It scores the full chain cost, including missing prerequisite buildings and the future upgrade, then buys the next prerequisite building batch when that chain is the best plan.
+
 If the best-scoring option is not affordable yet, the addon waits instead of buying a weaker cheaper option.
 
 To avoid saving forever, the buyer prefers targets that are affordable or within about 10 minutes at base CpS. Temporary CpS buffs do not make the buyer chase a long-term target it could not normally afford soon.
@@ -64,7 +66,7 @@ The auto-buyer reserve setting keeps an additional configurable cookie bank unsp
 
 The current target is cached so the addon can check affordability every second without fully rescoring every purchase candidate on every tick. It refreshes the target periodically, when store upgrades or building prices change, or when base CpS changes noticeably.
 
-The settings menu shows the current auto-buyer mode and target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, milestone or priority tags, reserve, strategic bank, and whether it is holding for a combo. It also lists the top three current plans with wait time, payoff time, type, and priority tag.
+The settings menu shows the current auto-buyer mode and target, whether the addon is ready to buy or waiting, estimated CpS gain or strategic status, payoff time, milestone, chain, or priority tags, reserve, strategic bank, and whether it is holding for a combo. It also lists the top three current plans with wait time, payoff time, type, and priority tag.
 
 It skips debug, prestige, and toggle upgrades.
 

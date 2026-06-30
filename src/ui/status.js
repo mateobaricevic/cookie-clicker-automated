@@ -158,6 +158,7 @@ CCAutomated.getAutoBuyerBankStatus = function () {
 
 CCAutomated.getAutoBuyerCandidateTypeText = function (candidate) {
   if (!candidate) return "";
+  if (candidate.chainUpgradeName) return "chain";
   if (candidate.type !== "building") return candidate.type;
 
   let amount = Math.max(1, Math.floor(candidate.amount || 1));
@@ -400,7 +401,12 @@ CCAutomated.getAutoBuyerStatus = function () {
   let spendableCookies = CCAutomated.getAutoBuyerSpendableCookies(cookies);
   let cookiesPerSecond = CCAutomated.getAutoBuyerPlanningCookiesPerSecond();
   let waitSeconds = CCAutomated.getAutoBuyerWaitSeconds(candidate.price, spendableCookies, cookiesPerSecond);
-  let displayGain = typeof candidate.realGain === "number" ? candidate.realGain : candidate.gain;
+  let displayGain =
+    typeof candidate.chainGain === "number"
+      ? candidate.chainGain
+      : typeof candidate.realGain === "number"
+        ? candidate.realGain
+        : candidate.gain;
   let canBuyNow = candidate.affordable && CCAutomated.canBuyDuringCombo(candidate);
   let isHoldingForCombo =
     candidate.affordable && CCAutomated.isStrongComboActive() && !CCAutomated.canBuyDuringCombo(candidate);
