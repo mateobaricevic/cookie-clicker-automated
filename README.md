@@ -112,13 +112,28 @@ Season switcher biscuits are held while the current season still has tracked dro
 
 ## Development
 
-Run the local syntax check before publishing changes:
+Edit the source files in `src/`. The root `main.js` file is generated and kept committed so the bookmarklet can continue loading a single file through `Game.LoadMod`.
+
+Source folders:
+
+- `src/core/`: bootstrap, config, formatting, and lifecycle wiring.
+- `src/automation/`: features that directly act on Cookie Clicker.
+- `src/strategy/`: reusable decision logic and planning.
+- `src/ui/`: settings menu and status panels.
+
+Regenerate the bookmarklet bundle after source changes:
+
+```sh
+npm run build
+```
+
+Run the local syntax check before publishing changes. This also rebuilds `main.js` first:
 
 ```sh
 npm run check
 ```
 
-The addon is intentionally dependency-free. `npm install` is not required for the current check script.
+The addon is intentionally dependency-free. `npm install` is not required for the current build or check scripts.
 
 ## Notes
 
