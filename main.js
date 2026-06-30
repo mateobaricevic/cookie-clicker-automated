@@ -15,6 +15,7 @@ CCAutomated.IntervalMs = {
   goldenCookieClicker: 400,
   wrinklerClicker: 400,
   grimoire: 400,
+  garden: 5000,
   autoBuyer: 1000,
 };
 CCAutomated.AutoBuyer = {
@@ -62,12 +63,23 @@ CCAutomated.Wrinklers = {
   minSuckedToPop: 1,
   lastPop: Date.now(),
 };
+CCAutomated.Garden = {
+  comboHarvestPlantNames: ["Bakeberry", "Queenbeet", "Duketater"],
+  soilByGoal: {
+    growing: "fertilizer",
+    holding: "clay",
+    mutation: "wood chips",
+  },
+  lastAction: "",
+  lastActionAt: 0,
+};
 
 CCAutomated.ConfigDefault = {
   AutoClicker: 0,
   GoldenCookies: 0,
   Wrinklers: 0,
   Grimoire: 0,
+  Garden: 0,
   AutoBuyer: 0,
   AutoBuyerStrategy: 1,
   AutoBuyerReserve: 0,
@@ -88,6 +100,10 @@ CCAutomated.ConfigData.Wrinklers = {
 CCAutomated.ConfigData.Grimoire = {
   label: ["OFF", "ON"],
   description: "Automated use of spells from Wizard Towers: Grimoire",
+};
+CCAutomated.ConfigData.Garden = {
+  label: ["OFF", "Harvest", "Manage"],
+  description: "Garden automation for combo harvests, freezing, and soil choice",
 };
 CCAutomated.ConfigData.AutoBuyer = {
   label: ["OFF", "ON"],
@@ -218,6 +234,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   };
   for (let config in CCAutomated.ConfigDefault) {
     subsection.appendChild(listing(config));
+    if (config === "Garden") subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   }
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.autoBuyerStatus());
@@ -235,6 +252,40 @@ CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
   div.style.lineHeight = "140%";
 
   let status = CCAutomated.getAutoBuyerStatus();
+  let title = document.createElement("div");
+  title.style.fontWeight = "bold";
+  title.style.marginBottom = "2px";
+  title.textContent = status.title;
+  div.appendChild(title);
+
+  for (let i = 0; i < status.lines.length; i++) {
+    let line = document.createElement("div");
+    line.style.display = "grid";
+    line.style.gridTemplateColumns = "74px 1fr";
+    line.style.columnGap = "8px";
+
+    let label = document.createElement("span");
+    label.style.opacity = "0.7";
+    label.textContent = status.lines[i].label;
+    line.appendChild(label);
+
+    let value = document.createElement("span");
+    value.textContent = status.lines[i].value;
+    line.appendChild(value);
+
+    div.appendChild(line);
+  }
+
+  return div;
+};
+
+CCAutomated.ConfigDisplay.gardenStatus = function () {
+  let div = document.createElement("div");
+  div.className = "listing";
+  div.style.opacity = "0.75";
+  div.style.lineHeight = "140%";
+
+  let status = CCAutomated.getGardenStatus();
   let title = document.createElement("div");
   title.style.fontWeight = "bold";
   title.style.marginBottom = "2px";
@@ -549,6 +600,209 @@ CCAutomated.shouldSellWizardTowersForCombo = function (grimoire) {
   return grimoire && grimoire.magic > 30;
 };
 
+CCAutomated.getGarden = function () {
+  let farm = Game.Objects && Game.Objects["Farm"];
+  if (!farm) return null;
+  if (typeof Game.isMinigameReady === "function" && !Game.isMinigameReady(farm)) return null;
+  return farm.minigame || null;
+};
+
+CCAutomated.getGardenPlotWidth = function (garden) {
+  if (!garden || !garden.plot || !garden.plot.length) return 0;
+  return garden.plot[0] ? garden.plot[0].length : 0;
+};
+
+CCAutomated.getGardenPlotHeight = function (garden) {
+  if (!garden || !garden.plot) return 0;
+  return garden.plot.length;
+};
+
+CCAutomated.getGardenTile = function (garden, x, y) {
+  if (!garden || !garden.plot || !garden.plot[y]) return null;
+  return garden.plot[y][x] || null;
+};
+
+CCAutomated.getGardenTilePlant = function (garden, tile) {
+  if (!garden || !tile || !tile[0] || !garden.plantsById) return null;
+  return garden.plantsById[tile[0] - 1] || null;
+};
+
+CCAutomated.isGardenComboHarvestPlant = function (plant) {
+  if (!plant || !plant.name) return false;
+
+  for (let i = 0; i < CCAutomated.Garden.comboHarvestPlantNames.length; i++) {
+    if (plant.name === CCAutomated.Garden.comboHarvestPlantNames[i]) return true;
+  }
+
+  return false;
+};
+
+CCAutomated.isGardenTileMature = function (plant, tile) {
+  if (!plant || !tile || typeof tile[1] !== "number") return false;
+  if (typeof plant.mature !== "number") return false;
+  return tile[1] >= plant.mature;
+};
+
+CCAutomated.getGardenSummary = function () {
+  let garden = CCAutomated.getGarden();
+  let summary = {
+    ready: !!garden,
+    frozen: false,
+    soil: "",
+    width: 0,
+    height: 0,
+    planted: 0,
+    mature: 0,
+    growing: 0,
+    comboReady: 0,
+    comboGrowing: 0,
+    comboPlantNames: [],
+  };
+  if (!garden) return summary;
+
+  summary.frozen = !!garden.freeze;
+  summary.soil = CCAutomated.getGardenSoilName(garden);
+  summary.width = CCAutomated.getGardenPlotWidth(garden);
+  summary.height = CCAutomated.getGardenPlotHeight(garden);
+
+  for (let y = 0; y < summary.height; y++) {
+    for (let x = 0; x < summary.width; x++) {
+      let tile = CCAutomated.getGardenTile(garden, x, y);
+      let plant = CCAutomated.getGardenTilePlant(garden, tile);
+      if (!plant) continue;
+
+      summary.planted++;
+      if (CCAutomated.isGardenTileMature(plant, tile)) summary.mature++;
+      else summary.growing++;
+
+      if (CCAutomated.isGardenComboHarvestPlant(plant)) {
+        if (CCAutomated.isGardenTileMature(plant, tile)) summary.comboReady++;
+        else summary.comboGrowing++;
+        if (summary.comboPlantNames.indexOf(plant.name) === -1) summary.comboPlantNames.push(plant.name);
+      }
+    }
+  }
+
+  return summary;
+};
+
+CCAutomated.setGardenAction = function (action) {
+  CCAutomated.Garden.lastAction = action;
+  CCAutomated.Garden.lastActionAt = Date.now();
+};
+
+CCAutomated.harvestGardenTile = function (garden, x, y) {
+  if (!garden || typeof garden.harvest !== "function") return false;
+
+  try {
+    garden.harvest(x, y);
+    return true;
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to harvest garden tile", x, y, e);
+  }
+
+  return false;
+};
+
+CCAutomated.setGardenFrozen = function (garden, frozen) {
+  if (!garden || !!garden.freeze === frozen) return false;
+
+  try {
+    if (typeof garden.toggleFreeze === "function") {
+      garden.toggleFreeze();
+      return true;
+    }
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to change garden freeze state", e);
+  }
+
+  return false;
+};
+
+CCAutomated.getGardenSoilName = function (garden) {
+  if (!garden || typeof garden.soil !== "number" || !garden.soilsById) return "";
+  let soil = garden.soilsById[garden.soil];
+  return soil && soil.name ? soil.name : "";
+};
+
+CCAutomated.getGardenSoilIdByName = function (garden, soilName) {
+  if (!garden || !garden.soilsById || !soilName) return -1;
+
+  for (let i = 0; i < garden.soilsById.length; i++) {
+    let soil = garden.soilsById[i];
+    if (soil && soil.name && soil.name.toLowerCase() === soilName.toLowerCase()) return i;
+  }
+
+  return -1;
+};
+
+CCAutomated.setGardenSoil = function (garden, soilName) {
+  if (!garden || !soilName) return false;
+  let soilId = CCAutomated.getGardenSoilIdByName(garden, soilName);
+  if (soilId < 0 || garden.soil === soilId) return false;
+
+  try {
+    if (typeof garden.changeSoil === "function") {
+      garden.changeSoil(soilId);
+      return garden.soil === soilId;
+    }
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to change garden soil", soilName, e);
+  }
+
+  return false;
+};
+
+CCAutomated.getGardenTargetSoil = function (summary) {
+  if (!summary || !summary.ready) return "";
+  if (summary.comboReady > 0) return CCAutomated.Garden.soilByGoal.holding;
+  if (summary.growing > 0) return CCAutomated.Garden.soilByGoal.growing;
+  if (summary.planted === 0) return CCAutomated.Garden.soilByGoal.mutation;
+  return "";
+};
+
+CCAutomated.handleGarden = function () {
+  if (CCAutomated.Config.Garden === 0) return;
+
+  let garden = CCAutomated.getGarden();
+  if (!garden) return;
+
+  let summary = CCAutomated.getGardenSummary();
+  let harvested = 0;
+
+  if (summary.comboReady > 0 && CCAutomated.isStrongComboActive()) {
+    if (CCAutomated.setGardenFrozen(garden, false)) CCAutomated.setGardenAction("Unfroze for combo harvest");
+
+    for (let y = 0; y < summary.height; y++) {
+      for (let x = 0; x < summary.width; x++) {
+        let tile = CCAutomated.getGardenTile(garden, x, y);
+        let plant = CCAutomated.getGardenTilePlant(garden, tile);
+        if (!CCAutomated.isGardenComboHarvestPlant(plant)) continue;
+        if (!CCAutomated.isGardenTileMature(plant, tile)) continue;
+        if (CCAutomated.harvestGardenTile(garden, x, y)) harvested++;
+      }
+    }
+  }
+
+  if (harvested > 0) {
+    CCAutomated.setGardenAction("Harvested " + harvested + " combo plant" + (harvested === 1 ? "" : "s"));
+    return;
+  }
+
+  if (CCAutomated.Config.Garden < 2) return;
+
+  if (summary.comboReady > 0 && !CCAutomated.isStrongComboActive()) {
+    if (CCAutomated.setGardenFrozen(garden, true)) CCAutomated.setGardenAction("Froze mature combo plants");
+  } else if (summary.growing > 0) {
+    if (CCAutomated.setGardenFrozen(garden, false)) CCAutomated.setGardenAction("Unfroze garden growth");
+  }
+
+  let targetSoil = CCAutomated.getGardenTargetSoil(summary);
+  if (targetSoil && CCAutomated.setGardenSoil(garden, targetSoil)) {
+    CCAutomated.setGardenAction("Changed soil to " + targetSoil);
+  }
+};
+
 // Handle Wizard towers: Grimoire minigame
 CCAutomated.handleGrimoire = function () {
   if (CCAutomated.Config.Grimoire === 0) return;
@@ -825,14 +1079,14 @@ CCAutomated.getAscensionStatus = function () {
     (currentPrestige > 0 ? " prestige (" + Math.floor(gainRatio * 100) + "%)" : " prestige");
 
   let lines = [
-    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
-    CCAutomated.makeAutoBuyerStatusLine("Reward", [rewardText]),
-    CCAutomated.makeAutoBuyerStatusLine("Target", [ruleText]),
+    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Reward", [rewardText]),
+    CCAutomated.makeStatusLine("Target", [ruleText]),
   ];
 
   if (!isRecommended) {
     lines.push(
-      CCAutomated.makeAutoBuyerStatusLine("ETA", [
+      CCAutomated.makeStatusLine("ETA", [
         isFinite(waitSeconds) ? CCAutomated.formatAutoBuyerDuration(waitSeconds) : "Unknown",
       ]),
     );
@@ -1053,7 +1307,7 @@ CCAutomated.canBuyDuringCombo = function (candidate) {
   return payout.after >= payout.before * CCAutomated.AutoBuyer.comboPayoutTolerance;
 };
 
-CCAutomated.joinAutoBuyerStatusParts = function (parts) {
+CCAutomated.joinStatusParts = function (parts) {
   let filtered = [];
 
   for (let i = 0; i < parts.length; i++) {
@@ -1063,8 +1317,8 @@ CCAutomated.joinAutoBuyerStatusParts = function (parts) {
   return filtered.join(" | ");
 };
 
-CCAutomated.makeAutoBuyerStatusLine = function (label, parts) {
-  let value = CCAutomated.joinAutoBuyerStatusParts(parts);
+CCAutomated.makeStatusLine = function (label, parts) {
+  let value = CCAutomated.joinStatusParts(parts);
   if (!value) return null;
 
   return {
@@ -1084,6 +1338,60 @@ CCAutomated.getAutoBuyerBankStatus = function () {
 
   if (totalReserve <= 0) return "Not keeping extra cookies";
   return "Keeping " + CCAutomated.formatAutoBuyerNumber(totalReserve) + " for " + reasons.join(" and ");
+};
+
+CCAutomated.getGardenActionText = function () {
+  if (!CCAutomated.Garden.lastAction) return "";
+  let ageSeconds = (Date.now() - CCAutomated.Garden.lastActionAt) / 1000;
+  if (ageSeconds > 300) return "";
+  return CCAutomated.Garden.lastAction;
+};
+
+CCAutomated.getGardenStatus = function () {
+  if (CCAutomated.Config.Garden === 0) {
+    return {
+      title: "Garden",
+      lines: [{ label: "Status", value: "Inactive" }],
+    };
+  }
+
+  let summary = CCAutomated.getGardenSummary();
+  if (!summary.ready) {
+    return {
+      title: "Garden",
+      lines: [{ label: "Status", value: "Farm minigame not ready" }],
+    };
+  }
+
+  let modeText = CCAutomated.ConfigData.Garden.label[CCAutomated.Config.Garden];
+  let stateText = summary.frozen ? "Frozen" : "Growing";
+  let plantText = summary.planted + " planted";
+  if (summary.mature > 0) plantText += ", " + summary.mature + " mature";
+  let comboText =
+    summary.comboReady > 0
+      ? summary.comboReady + " combo harvest ready"
+      : summary.comboGrowing > 0
+        ? summary.comboGrowing + " combo plants growing"
+        : "No combo harvest plants";
+  let targetSoil = CCAutomated.getGardenTargetSoil(summary);
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [modeText, stateText]),
+    CCAutomated.makeStatusLine("Plants", [plantText]),
+    CCAutomated.makeStatusLine("Combo", [comboText]),
+    CCAutomated.makeStatusLine("Soil", [
+      summary.soil || "Unknown",
+      CCAutomated.Config.Garden >= 2 && targetSoil ? "target " + targetSoil : "",
+    ]),
+    CCAutomated.makeStatusLine("Action", [CCAutomated.getGardenActionText()]),
+  ];
+
+  return {
+    title: "Garden",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
 };
 
 CCAutomated.getAutoBuyerStatus = function () {
@@ -1121,10 +1429,10 @@ CCAutomated.getAutoBuyerStatus = function () {
   if (isHoldingForCombo) statusText = "Waiting because buying now would reduce combo payout";
 
   let lines = [
-    CCAutomated.makeAutoBuyerStatusLine("Status", [statusText]),
-    CCAutomated.makeAutoBuyerStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
-    CCAutomated.makeAutoBuyerStatusLine("Value", [gainText]),
-    CCAutomated.makeAutoBuyerStatusLine("Bank", [CCAutomated.getAutoBuyerBankStatus()]),
+    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Target", [candidate.name + " (" + candidate.type + ")"]),
+    CCAutomated.makeStatusLine("Value", [gainText]),
+    CCAutomated.makeStatusLine("Bank", [CCAutomated.getAutoBuyerBankStatus()]),
   ];
 
   return {
@@ -1226,6 +1534,7 @@ CCAutomated.start = function () {
     CCAutomated.IntervalMs.wrinklerClicker,
   );
   CCAutomated.Intervals.grimoire = setInterval(CCAutomated.handleGrimoire, CCAutomated.IntervalMs.grimoire);
+  CCAutomated.Intervals.garden = setInterval(CCAutomated.handleGarden, CCAutomated.IntervalMs.garden);
   CCAutomated.Intervals.autoBuyer = setInterval(CCAutomated.handleAutoBuyer, CCAutomated.IntervalMs.autoBuyer);
 };
 

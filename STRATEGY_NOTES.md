@@ -5,10 +5,11 @@ These notes collect strategy and quality-of-life ideas for future implementation
 ## Best Next Features
 
 1. Garden automation
-   - Auto-freeze and unfreeze around growth and harvest windows.
-   - Harvest mature Bakeberries or Queenbeets only during strong buff windows.
-   - Switch soils by goal: Fertilizer for growth, Clay for mature passive bonuses, Wood Chips for mutations.
-   - Show garden status in the settings panel.
+   - Done: auto-freeze and unfreeze around growth and harvest windows.
+   - Done: harvest mature Bakeberries, Queenbeets, and Duketaters only during strong buff windows.
+   - Done: switch soils by goal when the Garden exposes a soil-change method: Fertilizer for growth, Clay for mature passive bonuses, Wood Chips for mutations.
+   - Done: show garden status in the settings panel.
+   - Later: add planting and mutation planning.
 
 2. Combo dashboard and Golden Cookie banking
    - Show current Lucky bank target, current bank status, and whether spending would reduce Lucky payout.

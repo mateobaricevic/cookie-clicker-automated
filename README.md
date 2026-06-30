@@ -3,6 +3,7 @@
 Cookie Clicker Automated is an addon for the [Cookie Clicker](https://orteil.dashnet.org/cookieclicker/) game.
 It can automate clicking the Big Cookie, popping Golden Cookies, popping Wrinklers, and using selected Grimoire spells.
 It can also auto-buy or save for the best building or upgrade based on estimated payoff time.
+It can manage selected Garden tasks, including combo harvests and safe holding behavior.
 It shows an ascension recommendation in the settings menu so you can see when a reset is worth considering.
 
 ## Bookmarklet
@@ -21,6 +22,7 @@ javascript: (function () {
 - Golden Cookie auto-clicker.
 - Wrinkler popping automation.
 - Wizard tower Grimoire automation for selected spell timing.
+- Garden automation for mature Bakeberry, Queenbeet, and Duketater combo harvests.
 - Auto-buyer that can save for higher-value buildings or upgrades.
 - Ascension recommendation status.
 - Preferences menu entries inside Cookie Clicker's settings menu.
@@ -63,6 +65,14 @@ The Grimoire automation is combo-first. It waits for strong natural buffs such a
 
 Conjure Baked Goods and sugar-lump refills are reserved for huge combo windows. Wizard tower selling is also limited to huge combo situations and never sells below 30 towers.
 
+## Garden
+
+The Garden automation has two active modes. `Harvest` only harvests mature Bakeberries, Queenbeets, and Duketaters during strong combo windows.
+
+`Manage` also freezes mature combo-harvest plants while waiting for a combo, unfreezes growing plants, and switches soil toward a conservative goal: Clay while holding mature combo plants, Fertilizer while growing plants, and Wood Chips when the garden is empty.
+
+The settings menu shows current Garden status, planted and mature counts, combo-harvest readiness, soil, and recent actions.
+
 ## Development
 
 Run the local syntax check before publishing changes:
@@ -75,4 +85,4 @@ The addon is intentionally dependency-free. `npm install` is not required for th
 
 ## Notes
 
-This addon can automatically spend cookies, spend resources, cast spells, sell Wizard towers, and pop Wrinklers. Review the settings before enabling automation on a save you care about.
+This addon can automatically spend cookies, spend resources, cast spells, sell Wizard towers, pop Wrinklers, harvest Garden plants, freeze or unfreeze the Garden, and change Garden soil. Review the settings before enabling automation on a save you care about.
