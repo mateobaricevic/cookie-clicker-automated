@@ -89,8 +89,7 @@ CCAutomated.Pantheon = {
   lowValueBuildingNames: ["Cursor", "Grandma", "Mine", "Factory", "Shipment", "Alchemy lab"],
 };
 CCAutomated.Season = {
-  upgradePattern:
-    /santa|festive|christmas|reindeer|egg|bunny|easter|halloween|valentine|heart|fool|business/i,
+  upgradePattern: /santa|festive|christmas|reindeer|egg|bunny|easter|halloween|valentine|heart|fool|business/i,
   santaPattern: /santa|festive/i,
   lastAction: "",
   lastActionAt: 0,
@@ -262,7 +261,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
 
   let div = document.createElement("div");
   div.className = "title";
-  div.textContent = "Cookie Clicker Automated Settings";
+  div.textContent = "Cookie Clicker Automated";
   subsection.appendChild(div);
   let listing = function (config) {
     let div = document.createElement("div");
@@ -1431,9 +1430,7 @@ CCAutomated.getAscensionStatus = function () {
 
   if (!isRecommended) {
     lines.push(
-      CCAutomated.makeStatusLine("ETA", [
-        isFinite(waitSeconds) ? CCAutomated.formatDuration(waitSeconds) : "Unknown",
-      ]),
+      CCAutomated.makeStatusLine("ETA", [isFinite(waitSeconds) ? CCAutomated.formatDuration(waitSeconds) : "Unknown"]),
     );
   }
 
