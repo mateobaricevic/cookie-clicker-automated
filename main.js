@@ -266,14 +266,40 @@ Game.UpdateMenu = function () {
 };
 
 // Handle auto clicking Big Cookie
+CCAutomated.getBigCookieCenter = function () {
+  let cookie = l("bigCookie");
+  if (!cookie || typeof cookie.getBoundingClientRect !== "function") return null;
+
+  let rect = cookie.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+    element: cookie,
+  };
+};
+
 CCAutomated.clickBigCookie = function () {
+  let cookieCenter = CCAutomated.getBigCookieCenter();
+  if (cookieCenter) {
+    Game.mouseX = cookieCenter.x;
+    Game.mouseY = cookieCenter.y;
+  }
+
   if (typeof Game.ClickCookie === "function") {
     Game.ClickCookie();
     return;
   }
 
-  let cookie = l("bigCookie");
-  if (cookie && typeof cookie.click === "function") cookie.click();
+  if (cookieCenter && typeof cookieCenter.element.dispatchEvent === "function") {
+    cookieCenter.element.dispatchEvent(
+      new MouseEvent("click", {
+        bubbles: true,
+        cancelable: true,
+        clientX: cookieCenter.x,
+        clientY: cookieCenter.y,
+      }),
+    );
+  }
 };
 
 CCAutomated.handleAutoClicker = function () {
