@@ -390,6 +390,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.seasonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.stockMarketStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
 
   let menu = l("menu");
@@ -453,6 +454,10 @@ CCAutomated.ConfigDisplay.seasonStatus = function () {
 
 CCAutomated.ConfigDisplay.ascensionStatus = function () {
   return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAscensionStatus());
+};
+
+CCAutomated.ConfigDisplay.stockMarketStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getStockMarketStatus());
 };
 
 CCAutomated.ConfigDisplay.autoBuyerStatus = function () {
@@ -624,8 +629,7 @@ CCAutomated.getSeasonDropDefinitions = function (seasonName) {
   let definitions = [];
 
   for (let i = 0; i < CCAutomated.Season.dropDefinitions.length; i++) {
-    if (CCAutomated.Season.dropDefinitions[i].season === season)
-      definitions.push(CCAutomated.Season.dropDefinitions[i]);
+    if (CCAutomated.Season.dropDefinitions[i].season === season) definitions.push(CCAutomated.Season.dropDefinitions[i]);
   }
 
   return definitions;
@@ -1081,6 +1085,7 @@ CCAutomated.shouldSellWizardTowersForCombo = function (grimoire) {
   if (!Game.Objects["Wizard tower"] || Game.Objects["Wizard tower"].amount <= 30) return false;
   return grimoire && grimoire.magic > 30;
 };
+
 
 CCAutomated.getGrimoire = function () {
   let tower = Game.Objects && Game.Objects["Wizard tower"];
@@ -1682,6 +1687,7 @@ CCAutomated.getAutoBuyerStoreSignature = function () {
   return storeSignature;
 };
 
+
 CCAutomated.estimateBuildingCpsGain = function (object, amount) {
   if (!object || typeof object.amount !== "number") return 0;
 
@@ -1816,11 +1822,7 @@ CCAutomated.getAutoBuyerChainUpgradeRequirements = function (upgrade) {
   }
 
   return requirements.filter(function (requirement) {
-    return (
-      requirement.object &&
-      typeof requirement.object.amount === "number" &&
-      requirement.object.amount < requirement.targetAmount
-    );
+    return requirement.object && typeof requirement.object.amount === "number" && requirement.object.amount < requirement.targetAmount;
   });
 };
 
@@ -1851,8 +1853,7 @@ CCAutomated.getAutoBuyerChainCandidatesForUpgrade = function (upgrade, spendable
 
   let chainPrice = chainBuildingPrice + upgradePrice;
   let chainWaitSeconds = CCAutomated.getAutoBuyerWaitSeconds(chainPrice, spendableCookies, cookiesPerSecond);
-  if (chainPrice > spendableCookies && chainWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds)
-    return candidates;
+  if (chainPrice > spendableCookies && chainWaitSeconds > CCAutomated.getAutoBuyerStrategy().maxWaitSeconds) return candidates;
 
   let chainGain = CCAutomated.estimateAutoBuyerChainCpsGain(requirements, upgrade);
   let priority = CCAutomated.getUpgradePriority(upgrade);
@@ -2385,6 +2386,226 @@ CCAutomated.getAscensionStatus = function () {
   };
 };
 
+CCAutomated.getStockMarket = function () {
+  let bank = Game.Objects && Game.Objects["Bank"];
+  if (!bank) return null;
+  if (typeof Game.isMinigameReady === "function" && !Game.isMinigameReady(bank)) return null;
+  return bank.minigame || null;
+};
+
+CCAutomated.getStockMarketBankLevel = function () {
+  let bank = Game.Objects && Game.Objects["Bank"];
+  if (!bank || typeof bank.level !== "number") return 0;
+  return bank.level;
+};
+
+CCAutomated.getStockMarketGoods = function (market) {
+  if (!market) return [];
+  if (market.goodsById && typeof market.goodsById.length === "number") return market.goodsById;
+  if (!market.goods) return [];
+
+  let goods = [];
+  for (let key in market.goods) {
+    goods.push(market.goods[key]);
+  }
+  return goods;
+};
+
+CCAutomated.getStockMarketGoodId = function (good, index) {
+  if (good && typeof good.id === "number") return good.id;
+  return index;
+};
+
+CCAutomated.getStockMarketGoodName = function (good) {
+  if (!good) return "Unknown";
+  return good.symbol || good.name || good.dname || "Unknown";
+};
+
+CCAutomated.getStockMarketGoodPrice = function (good) {
+  if (!good) return 0;
+  if (typeof good.val === "number") return good.val;
+  if (typeof good.value === "number") return good.value;
+  if (typeof good.price === "number") return good.price;
+  return 0;
+};
+
+CCAutomated.getStockMarketGoodDelta = function (good) {
+  if (!good) return 0;
+  if (typeof good.d === "number") return good.d;
+  if (typeof good.delta === "number") return good.delta;
+  if (typeof good.change === "number") return good.change;
+  return 0;
+};
+
+CCAutomated.getStockMarketGoodStock = function (good) {
+  if (!good) return 0;
+  if (typeof good.stock === "number") return good.stock;
+  if (typeof good.amount === "number") return good.amount;
+  return 0;
+};
+
+CCAutomated.getStockMarketGoodCapacity = function (market, good) {
+  if (!market || !good) return 0;
+
+  if (typeof market.getGoodMaxStock === "function") {
+    try {
+      return market.getGoodMaxStock(good);
+    } catch (e) {
+      console.warn("[CCAutomated] Failed to read stock capacity", good.name, e);
+    }
+  }
+
+  if (typeof good.stockMax === "number") return good.stockMax;
+  if (typeof good.maxStock === "number") return good.maxStock;
+  if (typeof good.capacity === "number") return good.capacity;
+  return 0;
+};
+
+CCAutomated.getStockMarketRestingValue = function (good, index) {
+  let id = CCAutomated.getStockMarketGoodId(good, index);
+  return 10 * (id + 1) + CCAutomated.getStockMarketBankLevel() - 1;
+};
+
+CCAutomated.getStockMarketBrokerCount = function (market) {
+  if (!market || typeof market.brokers !== "number") return 0;
+  return market.brokers;
+};
+
+CCAutomated.getStockMarketBrokerOverhead = function (market) {
+  let brokers = CCAutomated.getStockMarketBrokerCount(market);
+  return 20 / (brokers + 1);
+};
+
+CCAutomated.getStockMarketTargetBrokerCount = function (targetOverhead) {
+  targetOverhead = targetOverhead || 5;
+  return Math.max(0, Math.ceil(20 / targetOverhead - 1));
+};
+
+CCAutomated.getStockMarketProfit = function (market) {
+  if (!market || typeof market.profit !== "number") return 0;
+  return market.profit;
+};
+
+CCAutomated.formatStockMarketDollars = function (value) {
+  return "$" + CCAutomated.formatNumber(value);
+};
+
+CCAutomated.getStockMarketGoodAdvice = function (market, good, index) {
+  let price = CCAutomated.getStockMarketGoodPrice(good);
+  let resting = CCAutomated.getStockMarketRestingValue(good, index);
+  let stock = CCAutomated.getStockMarketGoodStock(good);
+  let capacity = CCAutomated.getStockMarketGoodCapacity(market, good);
+  let buyBelow = Math.max(1, resting * 0.7);
+  let sellAbove = resting * 1.1;
+  let action = "hold";
+  let score = 0;
+
+  if (price <= 1.05) {
+    action = "floor buy";
+    score = 1000 + resting - price;
+  } else if (price <= buyBelow && stock < capacity) {
+    action = "buy watch";
+    score = resting - price;
+  } else if (stock > 0 && price >= sellAbove) {
+    action = "sell watch";
+    score = price - resting;
+  }
+
+  return {
+    good: good,
+    name: CCAutomated.getStockMarketGoodName(good),
+    price: price,
+    delta: CCAutomated.getStockMarketGoodDelta(good),
+    resting: resting,
+    stock: stock,
+    capacity: capacity,
+    action: action,
+    score: score,
+  };
+};
+
+CCAutomated.getStockMarketSummary = function () {
+  let market = CCAutomated.getStockMarket();
+  let summary = {
+    ready: !!market,
+    goods: [],
+    opportunities: [],
+    buyCount: 0,
+    sellCount: 0,
+    stockHeld: 0,
+    stockCapacity: 0,
+    brokers: 0,
+    overhead: 0,
+    targetBrokers: CCAutomated.getStockMarketTargetBrokerCount(5),
+    officeLevel: 0,
+    profit: 0,
+  };
+  if (!market) return summary;
+
+  let goods = CCAutomated.getStockMarketGoods(market);
+  summary.brokers = CCAutomated.getStockMarketBrokerCount(market);
+  summary.overhead = CCAutomated.getStockMarketBrokerOverhead(market);
+  summary.officeLevel =
+    typeof market.officeLevel === "number" ? market.officeLevel : CCAutomated.getStockMarketBankLevel();
+  summary.profit = CCAutomated.getStockMarketProfit(market);
+
+  for (let i = 0; i < goods.length; i++) {
+    let good = goods[i];
+    if (!good) continue;
+
+    let advice = CCAutomated.getStockMarketGoodAdvice(market, good, i);
+    summary.goods.push(advice);
+    summary.stockHeld += advice.stock;
+    summary.stockCapacity += advice.capacity;
+
+    if (advice.action === "floor buy" || advice.action === "buy watch") summary.buyCount++;
+    else if (advice.action === "sell watch") summary.sellCount++;
+
+    if (advice.action !== "hold") summary.opportunities.push(advice);
+  }
+
+  summary.opportunities.sort(function (a, b) {
+    return b.score - a.score;
+  });
+
+  return summary;
+};
+
+CCAutomated.formatStockMarketGoodAdvice = function (advice) {
+  if (!advice) return "";
+
+  let deltaText = advice.delta ? (advice.delta > 0 ? "+" : "") + CCAutomated.formatNumber(advice.delta) : "flat";
+  return CCAutomated.joinStatusParts([
+    advice.name,
+    advice.action,
+    CCAutomated.formatStockMarketDollars(advice.price),
+    "rest " + CCAutomated.formatStockMarketDollars(advice.resting),
+    deltaText,
+    advice.capacity > 0 ? advice.stock + "/" + advice.capacity : "",
+  ]);
+};
+
+CCAutomated.getStockMarketLoanStatusText = function () {
+  let activeLoans = 0;
+  let activeInterest = 0;
+
+  if (Game.buffs) {
+    for (let name in Game.buffs) {
+      if (/^loan \d$/.test(name)) activeLoans++;
+      else if (/^loan \d interest$/.test(name)) activeInterest++;
+    }
+  }
+
+  if (activeLoans > 0) return activeLoans + " active";
+  if (activeInterest > 0) return activeInterest + " interest penalty active";
+  if (CCAutomated.isHugeComboActive()) return "Huge combo active; consider manual loan timing";
+
+  let garden = CCAutomated.getGardenSummary ? CCAutomated.getGardenSummary() : null;
+  if (garden && garden.comboReady > 0) return "Combo plants ready; keep loans manual";
+
+  return "Manual only; save for huge combos";
+};
+
 CCAutomated.joinStatusParts = function (parts) {
   let filtered = [];
 
@@ -2755,6 +2976,72 @@ CCAutomated.getSeasonStatus = function () {
 
   return {
     title: "Seasons",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
+};
+
+CCAutomated.getStockMarketStatus = function () {
+  let summary = CCAutomated.getStockMarketSummary();
+  if (!summary.ready) {
+    return {
+      title: "Stock Market",
+      lines: [{ label: "Status", value: "Bank minigame not ready" }],
+    };
+  }
+
+  let statusText = "Watching market";
+  if (summary.buyCount > 0 && summary.sellCount > 0) statusText = summary.buyCount + " buys, " + summary.sellCount + " sells";
+  else if (summary.buyCount > 0) statusText = summary.buyCount + " buy opportunities";
+  else if (summary.sellCount > 0) statusText = summary.sellCount + " sell opportunities";
+
+  let profitTarget = 10000000;
+  let yearTarget = 31536000;
+  let profitText = CCAutomated.formatStockMarketDollars(summary.profit);
+  if (summary.profit < profitTarget) {
+    profitText += ", " + CCAutomated.formatStockMarketDollars(profitTarget - summary.profit) + " to Liquid assets";
+  } else if (summary.profit < yearTarget) {
+    profitText += ", " + CCAutomated.formatStockMarketDollars(yearTarget - summary.profit) + " to Gaseous assets";
+  } else {
+    profitText += ", major profit achievements covered";
+  }
+
+  let brokerText =
+    summary.brokers +
+    " brokers, " +
+    Math.round(summary.overhead * 10) / 10 +
+    "% overhead";
+  if (summary.brokers < summary.targetBrokers) brokerText += ", target " + summary.targetBrokers;
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Office", ["level " + summary.officeLevel]),
+    CCAutomated.makeStatusLine("Capacity", [summary.stockHeld + " / " + summary.stockCapacity + " stock held"]),
+    CCAutomated.makeStatusLine("Brokers", [brokerText]),
+    CCAutomated.makeStatusLine("Profit", [profitText]),
+    CCAutomated.makeStatusLine("Loans", [CCAutomated.getStockMarketLoanStatusText()]),
+  ];
+
+  let opportunities = summary.opportunities.slice(0, 3);
+  for (let i = 0; i < opportunities.length; i++) {
+    lines.push(
+      CCAutomated.makeStatusLine("Stock " + (i + 1), [CCAutomated.formatStockMarketGoodAdvice(opportunities[i])]),
+    );
+  }
+
+  if (opportunities.length <= 0) {
+    let goods = summary.goods.slice().sort(function (a, b) {
+      return a.price / Math.max(1, a.resting) - b.price / Math.max(1, b.resting);
+    });
+
+    for (let j = 0; j < Math.min(2, goods.length); j++) {
+      lines.push(CCAutomated.makeStatusLine("Watch " + (j + 1), [CCAutomated.formatStockMarketGoodAdvice(goods[j])]));
+    }
+  }
+
+  return {
+    title: "Stock Market",
     lines: lines.filter(function (line) {
       return line;
     }),

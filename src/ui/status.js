@@ -374,6 +374,72 @@ CCAutomated.getSeasonStatus = function () {
   };
 };
 
+CCAutomated.getStockMarketStatus = function () {
+  let summary = CCAutomated.getStockMarketSummary();
+  if (!summary.ready) {
+    return {
+      title: "Stock Market",
+      lines: [{ label: "Status", value: "Bank minigame not ready" }],
+    };
+  }
+
+  let statusText = "Watching market";
+  if (summary.buyCount > 0 && summary.sellCount > 0) statusText = summary.buyCount + " buys, " + summary.sellCount + " sells";
+  else if (summary.buyCount > 0) statusText = summary.buyCount + " buy opportunities";
+  else if (summary.sellCount > 0) statusText = summary.sellCount + " sell opportunities";
+
+  let profitTarget = 10000000;
+  let yearTarget = 31536000;
+  let profitText = CCAutomated.formatStockMarketDollars(summary.profit);
+  if (summary.profit < profitTarget) {
+    profitText += ", " + CCAutomated.formatStockMarketDollars(profitTarget - summary.profit) + " to Liquid assets";
+  } else if (summary.profit < yearTarget) {
+    profitText += ", " + CCAutomated.formatStockMarketDollars(yearTarget - summary.profit) + " to Gaseous assets";
+  } else {
+    profitText += ", major profit achievements covered";
+  }
+
+  let brokerText =
+    summary.brokers +
+    " brokers, " +
+    Math.round(summary.overhead * 10) / 10 +
+    "% overhead";
+  if (summary.brokers < summary.targetBrokers) brokerText += ", target " + summary.targetBrokers;
+
+  let lines = [
+    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Office", ["level " + summary.officeLevel]),
+    CCAutomated.makeStatusLine("Capacity", [summary.stockHeld + " / " + summary.stockCapacity + " stock held"]),
+    CCAutomated.makeStatusLine("Brokers", [brokerText]),
+    CCAutomated.makeStatusLine("Profit", [profitText]),
+    CCAutomated.makeStatusLine("Loans", [CCAutomated.getStockMarketLoanStatusText()]),
+  ];
+
+  let opportunities = summary.opportunities.slice(0, 3);
+  for (let i = 0; i < opportunities.length; i++) {
+    lines.push(
+      CCAutomated.makeStatusLine("Stock " + (i + 1), [CCAutomated.formatStockMarketGoodAdvice(opportunities[i])]),
+    );
+  }
+
+  if (opportunities.length <= 0) {
+    let goods = summary.goods.slice().sort(function (a, b) {
+      return a.price / Math.max(1, a.resting) - b.price / Math.max(1, b.resting);
+    });
+
+    for (let j = 0; j < Math.min(2, goods.length); j++) {
+      lines.push(CCAutomated.makeStatusLine("Watch " + (j + 1), [CCAutomated.formatStockMarketGoodAdvice(goods[j])]));
+    }
+  }
+
+  return {
+    title: "Stock Market",
+    lines: lines.filter(function (line) {
+      return line;
+    }),
+  };
+};
+
 CCAutomated.getAutoBuyerStatus = function () {
   if (CCAutomated.Config.AutoBuyer === 0) {
     return {

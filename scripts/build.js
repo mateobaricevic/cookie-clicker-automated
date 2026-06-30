@@ -21,6 +21,7 @@ const files = [
   "strategy/buying.js",
   "core/format.js",
   "strategy/ascension.js",
+  "strategy/stock-market.js",
   "ui/status.js",
   "automation/auto-buyer.js",
   "core/lifecycle.js",

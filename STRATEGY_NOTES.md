@@ -15,6 +15,7 @@ Implemented areas:
 - Ascension checklist using a first-ascension target, repeat-ascension gain threshold, reset-prep warnings, permanent-slot suggestions, and lucky-prestige digit hints.
 - Auto-buyer Planning v2 for buy-1, buy-10, and buy-100 building plans, batch milestone scoring, and top-plan status display.
 - Auto-buyer chain planning for locked tiered and synergy upgrades, scored as full plans while buying the next prerequisite building batch.
+- Stock Market advisor showing resting values, conservative watch targets, brokers, capacity, profit progress, and loan timing guidance.
 
 The project is now past the baseline automation phase. The highest-value work should improve decision quality, surface richer planning data, and add safety checks around irreversible or high-cost actions.
 
@@ -29,27 +30,27 @@ The project is now past the baseline automation phase. The highest-value work sh
 
 ## Best Next Improvement
 
-Implement **Stock Market advisor** next.
+Implement **Grimoire planner** next.
 
-Why this should come before Stock Market automation:
+Why this should come before Garden mutation planning or Stock Market automation:
 
-- It makes a slow, opaque minigame easier to reason about before any automated trading exists.
-- The first implementation can stay read-only and avoid risky buy/sell actions.
-- It will complement the auto-buyer and ascension checklist by surfacing long-term economy state.
+- Grimoire combo timing is one of the highest-value active-play levers.
+- The current Grimoire automation already has safe casting thresholds and status display.
+- A read-only deterministic preview improves decision quality before expanding dual-cast or tower-selling behavior.
 
-Scope for the advisor implementation:
+Scope for the planner implementation:
 
-- Show stock goods, prices, deltas, resting values, held stock, capacity, profit, brokers, and office level.
-- Use conservative buy/sell bands around resting value and highlight very low-price opportunities.
-- Show broker overhead and target broker count.
-- Treat loans as combo tools and keep them manual.
+- Surface total spells cast and current season.
+- Preview the next Force the Hand of Fate outcome when this can be done safely from game data.
+- Show dual-cast readiness by current Wizard tower amount and level.
+- Keep visible-golden-cookie and conservative tower-selling safeguards.
 
 ## Suggested Implementation Order
 
 1. Done: Auto-buyer Planning v2: buy-10/buy-100 candidates, top candidate list, clearer payoff/status reporting.
 2. Done: Auto-buyer chain planning: building thresholds, upgrade unlock prerequisites, and strategic chain target display.
 3. Done: Ascension checklist: pre-ascend safety panel for Wrinklers, Garden harvests, Chocolate Egg, permanent upgrade slot suggestions, lucky-prestige digits, and save export.
-4. Stock Market advisor: read-only dashboard with resting values, buy/sell bands, broker overhead, capacity, profit progress, and loan readiness.
+4. Done: Stock Market advisor: read-only dashboard with resting values, buy/sell bands, broker overhead, capacity, profit progress, and loan readiness.
 5. Grimoire planner: deterministic Force the Hand of Fate preview, season-aware outcome variants, spell count display, and safer dual-cast thresholds.
 6. Garden mutation planner: layout recommendations, plant aging windows, seed unlock progress, and mutation-focused soil timing.
 7. Conservative Stock Market automation: optional buy/sell actions after the advisor is reliable, with strict reserves and no default loan use.
@@ -93,11 +94,11 @@ Potential later automation:
 
 - Add an explicit "Reset Prep" mode that pops Wrinklers, harvests mature combo plants during a buff if possible, sells buildings for Chocolate Egg value, buys Chocolate Egg, and then stops short of pressing ascend.
 
-### Stock Market Advisor
+### Stock Market Advisor (Implemented)
 
 Goal: make Stock Market decisions visible before any trading automation exists.
 
-Implementation notes:
+Implemented notes:
 
 - Read Bank minigame goods, prices, deltas, stock amounts, capacity, profit, brokers, and office level.
 - Compute resting value as `10 * (id + 1) + bankLevel - 1`.

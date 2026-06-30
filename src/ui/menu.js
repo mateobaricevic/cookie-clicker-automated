@@ -102,6 +102,7 @@ CCAutomated.ConfigDisplay.displayMenu = function () {
   subsection.appendChild(CCAutomated.ConfigDisplay.gardenStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.seasonStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.comboStatus());
+  subsection.appendChild(CCAutomated.ConfigDisplay.stockMarketStatus());
   subsection.appendChild(CCAutomated.ConfigDisplay.ascensionStatus());
 
   let menu = l("menu");
@@ -165,6 +166,10 @@ CCAutomated.ConfigDisplay.seasonStatus = function () {
 
 CCAutomated.ConfigDisplay.ascensionStatus = function () {
   return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAscensionStatus());
+};
+
+CCAutomated.ConfigDisplay.stockMarketStatus = function () {
+  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getStockMarketStatus());
 };
 
 CCAutomated.ConfigDisplay.autoBuyerStatus = function () {

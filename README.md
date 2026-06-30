@@ -6,6 +6,7 @@ It can also auto-buy or save for the best building or upgrade based on estimated
 It can manage selected Garden tasks, including combo harvests and safe holding behavior.
 It can trigger Godzamok during click combo windows by selling low-value buildings.
 It can click reindeer and buy affordable seasonal upgrades.
+It can advise on Stock Market state without placing trades.
 It shows an ascension checklist in the settings menu so you can see when a reset is worth considering and what to clean up first.
 
 ## Bookmarklet
@@ -29,6 +30,7 @@ javascript: (function () {
 - Pantheon Godzamok combo support and Skruuia-aware wrinkler guidance.
 - Season automation for reindeer, visible seasonal upgrades, drop tracking, and safe season switching.
 - Auto-buyer that can save for higher-value buildings or upgrades.
+- Read-only Stock Market advisor for prices, resting values, brokers, profit, loans, and watch targets.
 - Ascension recommendation and reset-prep checklist.
 - Preferences menu entries inside Cookie Clicker's settings menu.
 
@@ -115,6 +117,14 @@ The Seasons automation has two active modes. `Click` pops visible reindeer indep
 The settings menu shows the current season, visible reindeer, tracked drop progress, next seasonal upgrade, held season switchers, and recent actions.
 
 Season switcher biscuits are held while the current season still has tracked drops missing, so automation does not leave Christmas, Easter, Halloween, or Valentine's before key drops are collected. The auto-buyer uses the same safeguard.
+
+## Stock Market
+
+The Stock Market advisor is read-only. It never buys stock, sells stock, hires brokers, or takes loans.
+
+The settings menu shows Bank office level, stock held versus capacity, broker count and estimated overhead, profit progress, loan status, and the strongest current watch targets. Resting values use the conservative `10 * (id + 1) + bank level - 1` baseline.
+
+The advisor highlights very low floor-price buys, conservative below-rest buy watches, and above-rest sell watches for stock you already hold. Loans are treated as manual combo tools and are only called out when a huge combo or mature combo-harvest plants make timing worth thinking about.
 
 ## Development
 
