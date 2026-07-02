@@ -20,7 +20,7 @@ CCAutomated.IntervalMs = {
   garden: 5000,
   pantheon: 500,
   season: 500,
-  autoBuyer: 1000,
+  autoBuyer: 500,
 };
 CCAutomated.AutoBuyer = {
   target: null,
