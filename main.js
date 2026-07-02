@@ -39,6 +39,9 @@ CCAutomated.AutoBuyer = {
 CCAutomated.Strategy = {
   strongBuffMultiplier: 10,
   hugeBuffMultiplier: 100,
+  comboSpellMinSecondsLeft: 5,
+  forcedGoldenMinSecondsLeft: 2,
+  fthofBaseBackfireChance: 0.15,
   minStrategicUpgradeGainSeconds: 60,
   firstAscendPrestigeTarget: 365,
   repeatAscendPrestigeGainRatio: 0.1,
@@ -63,6 +66,10 @@ CCAutomated.Strategy = {
 };
 CCAutomated.AutoClicker = {
   clicksPerTick: 3,
+};
+CCAutomated.Combo = {
+  lastAction: "",
+  lastActionAt: 0,
 };
 CCAutomated.Wrinklers = {
   popIntervalMs: 2 * 60 * 60 * 1000,
@@ -517,10 +524,26 @@ CCAutomated.isGoldenShimmerReady = function (shimmer) {
   if (!shimmer || shimmer.type !== "golden") return false;
   if (shimmer.life <= 0) return false;
 
-  let secondsLeft = shimmer.life / Game.fps;
+  let secondsLeft = CCAutomated.getGoldenShimmerSecondsLeft(shimmer);
   if (!Game.Achievements["Early bird"].won) return true;
   if (!Game.Achievements["Fading luck"].won) return secondsLeft <= 1;
   return true;
+};
+
+CCAutomated.getGoldenShimmerSecondsLeft = function (shimmer) {
+  if (!shimmer || typeof shimmer.life !== "number") return 0;
+  if (typeof Game.fps !== "number" || Game.fps <= 0) return shimmer.life;
+  return shimmer.life / Game.fps;
+};
+
+CCAutomated.isForcedGoldenShimmer = function (shimmer) {
+  return !!(shimmer && shimmer.type === "golden" && shimmer.force && shimmer.force !== "cookie storm drop");
+};
+
+CCAutomated.shouldPopForcedGoldenShimmer = function (shimmer) {
+  if (!CCAutomated.isForcedGoldenShimmer(shimmer)) return false;
+  if (CCAutomated.isStrongComboActive()) return true;
+  return CCAutomated.getGoldenShimmerSecondsLeft(shimmer) <= CCAutomated.Strategy.forcedGoldenMinSecondsLeft;
 };
 
 CCAutomated.handleGoldenCookies = function () {
@@ -530,7 +553,9 @@ CCAutomated.handleGoldenCookies = function () {
   for (let i = Game.shimmers.length - 1; i >= 0; i--) {
     let shimmer = Game.shimmers[i];
     if (!shimmer) continue;
-    if (shimmer.force === "cookie storm drop" || CCAutomated.isGoldenShimmerReady(shimmer)) {
+    if (shimmer.force === "cookie storm drop" || CCAutomated.shouldPopForcedGoldenShimmer(shimmer)) {
+      shimmer.pop();
+    } else if (!CCAutomated.isForcedGoldenShimmer(shimmer) && CCAutomated.isGoldenShimmerReady(shimmer)) {
       shimmer.pop();
     }
   }
@@ -978,6 +1003,18 @@ CCAutomated.hasActiveGoldenShimmer = function () {
   return CCAutomated.getGoldenShimmerInfo().total > 0;
 };
 
+CCAutomated.setComboAction = function (action) {
+  CCAutomated.Combo.lastAction = action;
+  CCAutomated.Combo.lastActionAt = Date.now();
+};
+
+CCAutomated.getComboActionText = function () {
+  if (!CCAutomated.Combo.lastAction) return "";
+  let ageSeconds = (Date.now() - CCAutomated.Combo.lastActionAt) / 1000;
+  if (ageSeconds > 120) return "";
+  return CCAutomated.Combo.lastAction;
+};
+
 CCAutomated.getActiveComboBuffInfo = function () {
   let info = {
     count: 0,
@@ -1021,6 +1058,26 @@ CCAutomated.isHugeComboActive = function () {
   return combo.multiplier >= CCAutomated.Strategy.hugeBuffMultiplier || combo.hasClickBuff;
 };
 
+CCAutomated.getComboStage = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  if (combo.count <= 0) return "idle";
+  if (CCAutomated.isHugeComboActive()) return "execute";
+  if (CCAutomated.isStrongComboActive()) return "stack";
+  return "buff";
+};
+
+CCAutomated.isComboWorthStacking = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  if (!CCAutomated.isStrongComboActive()) return false;
+  if (combo.secondsLeft > 0 && combo.secondsLeft < CCAutomated.Strategy.comboSpellMinSecondsLeft) return false;
+  return combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff || combo.multiplier >= CCAutomated.Strategy.strongBuffMultiplier;
+};
+
+CCAutomated.isComboExecutionWindow = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  return CCAutomated.isHugeComboActive() || combo.hasClickBuff;
+};
+
 CCAutomated.getLuckyReward = function (cookies, cookiesPerSecond) {
   if (typeof cookies !== "number") cookies = 0;
   if (typeof cookiesPerSecond !== "number") cookiesPerSecond = 0;
@@ -1057,15 +1114,90 @@ CCAutomated.canCastSpell = function (grimoire, spell) {
   return grimoire && spell && grimoire.magic >= CCAutomated.getSpellCost(grimoire, spell);
 };
 
-CCAutomated.shouldCastForceHandOfFate = function (grimoire, spell) {
-  if (!CCAutomated.canCastSpell(grimoire, spell)) return false;
-  if (CCAutomated.hasActiveGoldenShimmer()) return false;
+CCAutomated.getForceHandOfFateBackfireChance = function (grimoire, spell) {
+  if (!spell) return null;
+  if (typeof spell.failChance === "number") return spell.failChance;
+  if (typeof spell.fail === "number") return spell.fail;
+  return CCAutomated.Strategy.fthofBaseBackfireChance;
+};
 
+CCAutomated.getForceHandOfFatePrediction = function (grimoire, spell) {
+  let prediction = {
+    label: "FtHoF outcome unknown",
+    isKnown: false,
+    isBackfire: false,
+  };
+  if (!grimoire || !spell) return prediction;
+
+  let failChance = CCAutomated.getForceHandOfFateBackfireChance(grimoire, spell);
+  if (typeof failChance === "number" && isFinite(failChance)) {
+    prediction.label = "FtHoF backfire risk " + Math.round(failChance * 100) + "%";
+  }
+
+  if (
+    typeof Math.seedrandom !== "function" ||
+    !Game.seed ||
+    typeof grimoire.spellsCastTotal !== "number" ||
+    typeof failChance !== "number"
+  )
+    return prediction;
+
+  try {
+    Math.seedrandom(Game.seed + "/" + grimoire.spellsCastTotal);
+    prediction.isBackfire = Math.random() < failChance;
+    prediction.isKnown = true;
+    prediction.label = prediction.isBackfire ? "Next FtHoF likely backfires" : "Next FtHoF likely succeeds";
+  } catch (e) {
+    console.warn("[CCAutomated] Failed to predict Force the Hand of Fate", e);
+  } finally {
+    Math.seedrandom();
+  }
+
+  return prediction;
+};
+
+CCAutomated.getForceHandOfFateDecision = function (grimoire, spell) {
   let combo = CCAutomated.getActiveComboBuffInfo();
-  if (combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff) return true;
-  if (combo.multiplier >= CCAutomated.Strategy.strongBuffMultiplier) return true;
+  let shimmers = CCAutomated.getGoldenShimmerInfo();
+  let prediction = CCAutomated.getForceHandOfFatePrediction(grimoire, spell);
+  let decision = {
+    shouldCast: false,
+    reason: "Waiting for combo",
+    prediction: prediction,
+  };
 
-  return false;
+  if (!spell) {
+    decision.reason = "Force the Hand of Fate unavailable";
+    return decision;
+  }
+  if (!CCAutomated.canCastSpell(grimoire, spell)) {
+    decision.reason = "Need magic";
+    return decision;
+  }
+  if (shimmers.regular > 0) {
+    decision.reason = "Blocked by natural golden cookie";
+    return decision;
+  }
+  if (shimmers.forced > 0 && !CCAutomated.isComboExecutionWindow(combo)) {
+    decision.reason = "Holding forced golden cookie";
+    return decision;
+  }
+  if (!CCAutomated.isComboWorthStacking(combo)) {
+    decision.reason = "Waiting for stackable combo";
+    return decision;
+  }
+  if (prediction.isKnown && prediction.isBackfire && !CCAutomated.isComboExecutionWindow(combo)) {
+    decision.reason = "Skipping predicted backfire";
+    return decision;
+  }
+
+  decision.shouldCast = true;
+  decision.reason = "Ready to cast";
+  return decision;
+};
+
+CCAutomated.shouldCastForceHandOfFate = function (grimoire, spell) {
+  return CCAutomated.getForceHandOfFateDecision(grimoire, spell).shouldCast;
 };
 
 CCAutomated.shouldCastConjureBakedGoods = function (grimoire, spell) {
@@ -1074,11 +1206,11 @@ CCAutomated.shouldCastConjureBakedGoods = function (grimoire, spell) {
 };
 
 CCAutomated.shouldUseLumpForGrimoire = function (grimoire) {
-  return CCAutomated.isHugeComboActive() && CCAutomated.canUseLumps(grimoire);
+  return CCAutomated.isComboExecutionWindow() && CCAutomated.canUseLumps(grimoire);
 };
 
 CCAutomated.shouldSellWizardTowersForCombo = function (grimoire) {
-  if (!CCAutomated.isHugeComboActive()) return false;
+  if (!CCAutomated.isComboExecutionWindow()) return false;
   if (!Game.shimmerTypes || !Game.shimmerTypes["golden"] || Game.shimmerTypes["golden"].n < 2) return false;
   if (!Game.Objects["Wizard tower"] || Game.Objects["Wizard tower"].amount <= 30) return false;
   return grimoire && grimoire.magic > 30;
@@ -1098,21 +1230,26 @@ CCAutomated.handleGrimoire = function () {
   let grimoire = CCAutomated.getGrimoire();
   if (grimoire) {
     let spell = grimoire.spells["hand of fate"];
-    if (CCAutomated.shouldCastForceHandOfFate(grimoire, spell)) {
+    let fthofDecision = CCAutomated.getForceHandOfFateDecision(grimoire, spell);
+    if (fthofDecision.shouldCast) {
       grimoire.castSpell(spell);
+      CCAutomated.setComboAction("Cast Force the Hand of Fate");
     }
     if (CCAutomated.shouldSellWizardTowersForCombo(grimoire)) {
       let tower = Game.Objects["Wizard tower"];
       tower.sell(tower.amount - 30);
+      CCAutomated.setComboAction("Sold wizard towers for another spell");
     }
     spell = grimoire.spells["conjure baked goods"];
-    if (CCAutomated.getCpsMultiplier() >= CCAutomated.Strategy.hugeBuffMultiplier) {
+    if (CCAutomated.isComboExecutionWindow()) {
       if (CCAutomated.shouldCastConjureBakedGoods(grimoire, spell)) {
         grimoire.castSpell(spell);
+        CCAutomated.setComboAction("Cast Conjure Baked Goods");
         return;
       }
       if (CCAutomated.shouldUseLumpForGrimoire(grimoire)) {
         grimoire.lumpRefill.click();
+        CCAutomated.setComboAction("Refilled magic with a sugar lump");
       }
     }
   }
@@ -1304,6 +1441,7 @@ CCAutomated.handleGarden = function () {
 
   if (harvested > 0) {
     CCAutomated.setGardenAction("Harvested " + harvested + " combo plant" + (harvested === 1 ? "" : "s"));
+    CCAutomated.setComboAction("Harvested " + harvested + " combo plant" + (harvested === 1 ? "" : "s"));
     return;
   }
 
@@ -1458,7 +1596,10 @@ CCAutomated.triggerGodzamokCombo = function () {
     }
   }
 
-  if (sold > 0) CCAutomated.setPantheonAction("Sold " + sold + " buildings for Godzamok");
+  if (sold > 0) {
+    CCAutomated.setPantheonAction("Sold " + sold + " buildings for Godzamok");
+    CCAutomated.setComboAction("Sold " + sold + " buildings for Godzamok");
+  }
   return sold > 0;
 };
 
@@ -2892,6 +3033,7 @@ CCAutomated.getComboStatus = function () {
   let shimmers = CCAutomated.getGoldenShimmerInfo();
   let lucky = CCAutomated.getLuckyBankStatusText();
   let goldenAutoClicking = CCAutomated.Config.GoldenCookies > 0;
+  let actionText = CCAutomated.getComboActionText();
   let shimmerText = "";
   if (shimmers.stormDrops > 0) shimmerText += ", " + shimmers.stormDrops + " storm drops";
   if (shimmers.forced > 0) shimmerText += ", " + shimmers.forced + " forced";
@@ -2905,6 +3047,7 @@ CCAutomated.getComboStatus = function () {
     CCAutomated.makeStatusLine("Time", [
       combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) + " remaining" : "",
     ]),
+    CCAutomated.makeStatusLine("Action", [actionText]),
     CCAutomated.makeStatusLine("Golden", [goldenAutoClicking ? "" : shimmerText]),
     CCAutomated.makeStatusLine("Lucky bank", [luckyBankText, "target " + CCAutomated.formatNumber(lucky.target)]),
   ];
@@ -2947,26 +3090,21 @@ CCAutomated.getGrimoireStatus = function () {
   let magic = typeof grimoire.magic === "number" ? grimoire.magic : 0;
   let maxMagic = typeof grimoire.magicM === "number" ? grimoire.magicM : null;
   let combo = CCAutomated.getActiveComboBuffInfo();
-  let shimmers = CCAutomated.getGoldenShimmerInfo();
-  let canAfford = magic >= cost;
-  let statusText = "Waiting for combo";
-
-  if (!spell) statusText = "Force the Hand of Fate unavailable";
-  else if (!canAfford) statusText = "Need magic";
-  else if (shimmers.total > 0) statusText = "Blocked by visible golden cookie";
-  else if (CCAutomated.isStrongComboActive()) statusText = "Ready to cast";
+  let decision = CCAutomated.getForceHandOfFateDecision(grimoire, spell);
+  let actionText = CCAutomated.getComboActionText();
 
   let lines = [
-    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Status", [decision.reason]),
     CCAutomated.makeStatusLine("Magic", [
       CCAutomated.formatNumber(magic) + (maxMagic !== null ? " / " + CCAutomated.formatNumber(maxMagic) : ""),
       isFinite(cost) ? "FtHoF costs " + CCAutomated.formatNumber(cost) : "",
     ]),
-    CCAutomated.makeStatusLine("Combo", [
-      CCAutomated.getComboStatusText(combo),
-      CCAutomated.formatComboMultiplier(combo.multiplier),
+    CCAutomated.makeStatusLine("Combo", [CCAutomated.getComboStatusText(combo)]),
+    CCAutomated.makeStatusLine("Plan", [
+      "Stage " + CCAutomated.getComboStage(combo),
+      decision.prediction ? decision.prediction.label : "",
+      actionText,
     ]),
-    CCAutomated.makeStatusLine("Golden", [shimmers.total > 0 ? shimmers.total + " visible" : "None visible"]),
   ];
 
   return {
@@ -3012,11 +3150,14 @@ CCAutomated.formatAutoBuyerCandidatePlan = function (candidate) {
   candidate = CCAutomated.updateAutoBuyerTargetPrice(candidate);
   if (!candidate) return "";
 
+  let typeText = CCAutomated.getAutoBuyerCandidateTypeText(candidate);
+  let planText = candidate.planLabel || candidate.name;
+  if (typeText) planText += " (" + typeText + ")";
+
   return CCAutomated.joinStatusParts([
-    candidate.planLabel || candidate.name,
+    planText,
     "wait " + CCAutomated.formatDuration(candidate.waitSeconds),
     candidate.payoffSeconds > 0 ? "payoff " + CCAutomated.formatDuration(candidate.payoffSeconds) : "",
-    CCAutomated.getAutoBuyerCandidateTypeText(candidate),
     CCAutomated.getAutoBuyerCandidatePriorityText(candidate),
   ]);
 };

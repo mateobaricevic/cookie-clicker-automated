@@ -55,6 +55,7 @@ CCAutomated.getComboStatus = function () {
   let shimmers = CCAutomated.getGoldenShimmerInfo();
   let lucky = CCAutomated.getLuckyBankStatusText();
   let goldenAutoClicking = CCAutomated.Config.GoldenCookies > 0;
+  let actionText = CCAutomated.getComboActionText();
   let shimmerText = "";
   if (shimmers.stormDrops > 0) shimmerText += ", " + shimmers.stormDrops + " storm drops";
   if (shimmers.forced > 0) shimmerText += ", " + shimmers.forced + " forced";
@@ -68,6 +69,7 @@ CCAutomated.getComboStatus = function () {
     CCAutomated.makeStatusLine("Time", [
       combo.secondsLeft > 0 ? CCAutomated.formatDuration(combo.secondsLeft) + " remaining" : "",
     ]),
+    CCAutomated.makeStatusLine("Action", [actionText]),
     CCAutomated.makeStatusLine("Golden", [goldenAutoClicking ? "" : shimmerText]),
     CCAutomated.makeStatusLine("Lucky bank", [luckyBankText, "target " + CCAutomated.formatNumber(lucky.target)]),
   ];
@@ -110,26 +112,21 @@ CCAutomated.getGrimoireStatus = function () {
   let magic = typeof grimoire.magic === "number" ? grimoire.magic : 0;
   let maxMagic = typeof grimoire.magicM === "number" ? grimoire.magicM : null;
   let combo = CCAutomated.getActiveComboBuffInfo();
-  let shimmers = CCAutomated.getGoldenShimmerInfo();
-  let canAfford = magic >= cost;
-  let statusText = "Waiting for combo";
-
-  if (!spell) statusText = "Force the Hand of Fate unavailable";
-  else if (!canAfford) statusText = "Need magic";
-  else if (shimmers.total > 0) statusText = "Blocked by visible golden cookie";
-  else if (CCAutomated.isStrongComboActive()) statusText = "Ready to cast";
+  let decision = CCAutomated.getForceHandOfFateDecision(grimoire, spell);
+  let actionText = CCAutomated.getComboActionText();
 
   let lines = [
-    CCAutomated.makeStatusLine("Status", [statusText]),
+    CCAutomated.makeStatusLine("Status", [decision.reason]),
     CCAutomated.makeStatusLine("Magic", [
       CCAutomated.formatNumber(magic) + (maxMagic !== null ? " / " + CCAutomated.formatNumber(maxMagic) : ""),
       isFinite(cost) ? "FtHoF costs " + CCAutomated.formatNumber(cost) : "",
     ]),
-    CCAutomated.makeStatusLine("Combo", [
-      CCAutomated.getComboStatusText(combo),
-      CCAutomated.formatComboMultiplier(combo.multiplier),
+    CCAutomated.makeStatusLine("Combo", [CCAutomated.getComboStatusText(combo)]),
+    CCAutomated.makeStatusLine("Plan", [
+      "Stage " + CCAutomated.getComboStage(combo),
+      decision.prediction ? decision.prediction.label : "",
+      actionText,
     ]),
-    CCAutomated.makeStatusLine("Golden", [shimmers.total > 0 ? shimmers.total + " visible" : "None visible"]),
   ];
 
   return {
@@ -175,11 +172,14 @@ CCAutomated.formatAutoBuyerCandidatePlan = function (candidate) {
   candidate = CCAutomated.updateAutoBuyerTargetPrice(candidate);
   if (!candidate) return "";
 
+  let typeText = CCAutomated.getAutoBuyerCandidateTypeText(candidate);
+  let planText = candidate.planLabel || candidate.name;
+  if (typeText) planText += " (" + typeText + ")";
+
   return CCAutomated.joinStatusParts([
-    candidate.planLabel || candidate.name,
+    planText,
     "wait " + CCAutomated.formatDuration(candidate.waitSeconds),
     candidate.payoffSeconds > 0 ? "payoff " + CCAutomated.formatDuration(candidate.payoffSeconds) : "",
-    CCAutomated.getAutoBuyerCandidateTypeText(candidate),
     CCAutomated.getAutoBuyerCandidatePriorityText(candidate),
   ]);
 };

@@ -51,6 +51,18 @@ CCAutomated.hasActiveGoldenShimmer = function () {
   return CCAutomated.getGoldenShimmerInfo().total > 0;
 };
 
+CCAutomated.setComboAction = function (action) {
+  CCAutomated.Combo.lastAction = action;
+  CCAutomated.Combo.lastActionAt = Date.now();
+};
+
+CCAutomated.getComboActionText = function () {
+  if (!CCAutomated.Combo.lastAction) return "";
+  let ageSeconds = (Date.now() - CCAutomated.Combo.lastActionAt) / 1000;
+  if (ageSeconds > 120) return "";
+  return CCAutomated.Combo.lastAction;
+};
+
 CCAutomated.getActiveComboBuffInfo = function () {
   let info = {
     count: 0,
@@ -92,4 +104,24 @@ CCAutomated.isStrongComboActive = function () {
 CCAutomated.isHugeComboActive = function () {
   let combo = CCAutomated.getActiveComboBuffInfo();
   return combo.multiplier >= CCAutomated.Strategy.hugeBuffMultiplier || combo.hasClickBuff;
+};
+
+CCAutomated.getComboStage = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  if (combo.count <= 0) return "idle";
+  if (CCAutomated.isHugeComboActive()) return "execute";
+  if (CCAutomated.isStrongComboActive()) return "stack";
+  return "buff";
+};
+
+CCAutomated.isComboWorthStacking = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  if (!CCAutomated.isStrongComboActive()) return false;
+  if (combo.secondsLeft > 0 && combo.secondsLeft < CCAutomated.Strategy.comboSpellMinSecondsLeft) return false;
+  return combo.hasFrenzy || combo.hasBuildingSpecial || combo.hasDragonBuff || combo.multiplier >= CCAutomated.Strategy.strongBuffMultiplier;
+};
+
+CCAutomated.isComboExecutionWindow = function (combo) {
+  if (!combo) combo = CCAutomated.getActiveComboBuffInfo();
+  return CCAutomated.isHugeComboActive() || combo.hasClickBuff;
 };

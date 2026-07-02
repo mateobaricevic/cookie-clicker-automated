@@ -32,6 +32,9 @@ CCAutomated.AutoBuyer = {
 CCAutomated.Strategy = {
   strongBuffMultiplier: 10,
   hugeBuffMultiplier: 100,
+  comboSpellMinSecondsLeft: 5,
+  forcedGoldenMinSecondsLeft: 2,
+  fthofBaseBackfireChance: 0.15,
   minStrategicUpgradeGainSeconds: 60,
   firstAscendPrestigeTarget: 365,
   repeatAscendPrestigeGainRatio: 0.1,
@@ -56,6 +59,10 @@ CCAutomated.Strategy = {
 };
 CCAutomated.AutoClicker = {
   clicksPerTick: 3,
+};
+CCAutomated.Combo = {
+  lastAction: "",
+  lastActionAt: 0,
 };
 CCAutomated.Wrinklers = {
   popIntervalMs: 2 * 60 * 60 * 1000,

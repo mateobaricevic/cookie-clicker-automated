@@ -184,6 +184,7 @@ CCAutomated.handleGarden = function () {
 
   if (harvested > 0) {
     CCAutomated.setGardenAction("Harvested " + harvested + " combo plant" + (harvested === 1 ? "" : "s"));
+    CCAutomated.setComboAction("Harvested " + harvested + " combo plant" + (harvested === 1 ? "" : "s"));
     return;
   }
 

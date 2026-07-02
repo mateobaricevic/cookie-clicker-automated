@@ -135,7 +135,10 @@ CCAutomated.triggerGodzamokCombo = function () {
     }
   }
 
-  if (sold > 0) CCAutomated.setPantheonAction("Sold " + sold + " buildings for Godzamok");
+  if (sold > 0) {
+    CCAutomated.setPantheonAction("Sold " + sold + " buildings for Godzamok");
+    CCAutomated.setComboAction("Sold " + sold + " buildings for Godzamok");
+  }
   return sold > 0;
 };
 
