@@ -27,6 +27,10 @@ CCAutomated.refreshAutoBuyerTarget = function () {
   CCAutomated.AutoBuyer.lastStoreSignature = CCAutomated.getAutoBuyerStoreSignature();
 };
 
+CCAutomated.shouldBypassAutoBuyerUpgradeConfirmation = function (upgrade) {
+  return !!(upgrade && upgrade.name === "One mind" && upgrade.pool === "tech");
+};
+
 CCAutomated.buyAutoBuyerCandidate = function (candidate) {
   if (!candidate || !candidate.affordable) return false;
   if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
@@ -46,7 +50,7 @@ CCAutomated.buyAutoBuyerCandidate = function (candidate) {
         return false;
       if (typeof candidate.item.canBuy === "function" && !candidate.item.canBuy()) return false;
       if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
-      candidate.item.buy();
+      candidate.item.buy(CCAutomated.shouldBypassAutoBuyerUpgradeConfirmation(candidate.item) ? 1 : undefined);
       return true;
     }
   } catch (e) {

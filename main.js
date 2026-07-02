@@ -34,6 +34,7 @@ CCAutomated.AutoBuyer = {
   luckyRewardCookiesPerSecond: 900,
   luckyRewardBankRatio: 0.15,
   comboPayoutTolerance: 0.995,
+  bulkCatchUpPayoffSeconds: 15,
 };
 CCAutomated.Strategy = {
   strongBuffMultiplier: 10,
@@ -2023,11 +2024,32 @@ CCAutomated.getRankedAutoBuyerCandidates = function (candidates) {
   });
 };
 
+CCAutomated.getAutoBuyerBulkCatchUpCandidate = function (candidates) {
+  let best = null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    let candidate = candidates[i];
+    if (!candidate || candidate.type !== "building") continue;
+    if (!candidate.affordable || candidate.amount <= 1) continue;
+    if (candidate.chainUpgradeName) continue;
+    if (candidate.realGain <= 0) continue;
+    if (candidate.payoffSeconds > CCAutomated.AutoBuyer.bulkCatchUpPayoffSeconds) continue;
+    if (!CCAutomated.canBuyDuringCombo(candidate)) continue;
+
+    if (!best || candidate.amount > best.amount || (candidate.amount === best.amount && candidate.score < best.score)) {
+      best = candidate;
+    }
+  }
+
+  return best;
+};
+
 CCAutomated.selectAutoBuyerCandidate = function (candidates) {
   let strategy = CCAutomated.getAutoBuyerStrategy();
   let best = null;
   let bestAffordable = null;
   let bestWithinWait = null;
+  let bulkCatchUp = CCAutomated.getAutoBuyerBulkCatchUpCandidate(candidates);
 
   for (let i = 0; i < candidates.length; i++) {
     let purchaseReady = candidates[i].affordable && CCAutomated.canBuyDuringCombo(candidates[i]);
@@ -2041,6 +2063,7 @@ CCAutomated.selectAutoBuyerCandidate = function (candidates) {
       bestWithinWait = candidates[i];
   }
 
+  if (bulkCatchUp) return bulkCatchUp;
   return bestWithinWait || bestAffordable || best;
 };
 
@@ -2115,6 +2138,7 @@ CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase = function (candidate) {
 CCAutomated.canBuyDuringCombo = function (candidate) {
   if (!CCAutomated.isStrongComboActive()) return true;
   if (!candidate || !candidate.affordable) return false;
+  if (candidate.realGain > 0) return true;
 
   let payout = CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase(candidate);
   if (!payout) return false;
@@ -3148,6 +3172,10 @@ CCAutomated.refreshAutoBuyerTarget = function () {
   CCAutomated.AutoBuyer.lastStoreSignature = CCAutomated.getAutoBuyerStoreSignature();
 };
 
+CCAutomated.shouldBypassAutoBuyerUpgradeConfirmation = function (upgrade) {
+  return !!(upgrade && upgrade.name === "One mind" && upgrade.pool === "tech");
+};
+
 CCAutomated.buyAutoBuyerCandidate = function (candidate) {
   if (!candidate || !candidate.affordable) return false;
   if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
@@ -3167,7 +3195,7 @@ CCAutomated.buyAutoBuyerCandidate = function (candidate) {
         return false;
       if (typeof candidate.item.canBuy === "function" && !candidate.item.canBuy()) return false;
       if (!CCAutomated.canBuyDuringCombo(candidate)) return false;
-      candidate.item.buy();
+      candidate.item.buy(CCAutomated.shouldBypassAutoBuyerUpgradeConfirmation(candidate.item) ? 1 : undefined);
       return true;
     }
   } catch (e) {

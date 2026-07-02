@@ -553,11 +553,32 @@ CCAutomated.getRankedAutoBuyerCandidates = function (candidates) {
   });
 };
 
+CCAutomated.getAutoBuyerBulkCatchUpCandidate = function (candidates) {
+  let best = null;
+
+  for (let i = 0; i < candidates.length; i++) {
+    let candidate = candidates[i];
+    if (!candidate || candidate.type !== "building") continue;
+    if (!candidate.affordable || candidate.amount <= 1) continue;
+    if (candidate.chainUpgradeName) continue;
+    if (candidate.realGain <= 0) continue;
+    if (candidate.payoffSeconds > CCAutomated.AutoBuyer.bulkCatchUpPayoffSeconds) continue;
+    if (!CCAutomated.canBuyDuringCombo(candidate)) continue;
+
+    if (!best || candidate.amount > best.amount || (candidate.amount === best.amount && candidate.score < best.score)) {
+      best = candidate;
+    }
+  }
+
+  return best;
+};
+
 CCAutomated.selectAutoBuyerCandidate = function (candidates) {
   let strategy = CCAutomated.getAutoBuyerStrategy();
   let best = null;
   let bestAffordable = null;
   let bestWithinWait = null;
+  let bulkCatchUp = CCAutomated.getAutoBuyerBulkCatchUpCandidate(candidates);
 
   for (let i = 0; i < candidates.length; i++) {
     let purchaseReady = candidates[i].affordable && CCAutomated.canBuyDuringCombo(candidates[i]);
@@ -571,6 +592,7 @@ CCAutomated.selectAutoBuyerCandidate = function (candidates) {
       bestWithinWait = candidates[i];
   }
 
+  if (bulkCatchUp) return bulkCatchUp;
   return bestWithinWait || bestAffordable || best;
 };
 
@@ -645,6 +667,7 @@ CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase = function (candidate) {
 CCAutomated.canBuyDuringCombo = function (candidate) {
   if (!CCAutomated.isStrongComboActive()) return true;
   if (!candidate || !candidate.affordable) return false;
+  if (candidate.realGain > 0) return true;
 
   let payout = CCAutomated.getAutoBuyerCandidatePayoutAfterPurchase(candidate);
   if (!payout) return false;

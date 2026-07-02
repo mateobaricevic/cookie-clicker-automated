@@ -27,6 +27,7 @@ CCAutomated.AutoBuyer = {
   luckyRewardCookiesPerSecond: 900,
   luckyRewardBankRatio: 0.15,
   comboPayoutTolerance: 0.995,
+  bulkCatchUpPayoffSeconds: 15,
 };
 CCAutomated.Strategy = {
   strongBuffMultiplier: 10,
