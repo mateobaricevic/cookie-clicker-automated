@@ -144,6 +144,30 @@ CCAutomated.ConfigDisplay.statusPanel = function (status) {
   return div;
 };
 
+CCAutomated.ConfigDisplay.ascensionActions = function () {
+  let summary = CCAutomated.getWrinklerSummary ? CCAutomated.getWrinklerSummary() : null;
+  if (!summary || summary.attached <= 0) return null;
+
+  let div = document.createElement("div");
+  div.className = "listing";
+
+  let a = document.createElement("a");
+  a.className = "option";
+  a.textContent = "POP";
+  a.onclick = function () {
+    let popped = CCAutomated.popAllAttachedWrinklers ? CCAutomated.popAllAttachedWrinklers() : 0;
+    if (typeof Game.Popup === "function") Game.Popup("Popped " + popped + " wrinklers.");
+    Game.UpdateMenu();
+  };
+  div.appendChild(a);
+
+  let label = document.createElement("label");
+  label.textContent = "Clear wrinklers before ascending";
+  div.appendChild(label);
+
+  return div;
+};
+
 CCAutomated.ConfigDisplay.comboStatus = function () {
   return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getComboStatus());
 };
@@ -165,7 +189,11 @@ CCAutomated.ConfigDisplay.seasonStatus = function () {
 };
 
 CCAutomated.ConfigDisplay.ascensionStatus = function () {
-  return CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAscensionStatus());
+  let frag = document.createDocumentFragment();
+  let actions = CCAutomated.ConfigDisplay.ascensionActions();
+  frag.appendChild(CCAutomated.ConfigDisplay.statusPanel(CCAutomated.getAscensionStatus()));
+  if (actions) frag.appendChild(actions);
+  return frag;
 };
 
 CCAutomated.ConfigDisplay.stockMarketStatus = function () {

@@ -7,6 +7,20 @@ CCAutomated.popWrinkler = function (wrinkler) {
   if (wrinkler) wrinkler.hp = 0;
 };
 
+CCAutomated.popAllAttachedWrinklers = function () {
+  let popped = 0;
+  if (!Game.wrinklers) return popped;
+
+  Game.wrinklers.forEach(function (wrinkler) {
+    if (!CCAutomated.isWrinklerAttached(wrinkler)) return;
+    CCAutomated.popWrinkler(wrinkler);
+    popped++;
+  });
+
+  if (popped > 0) CCAutomated.Wrinklers.lastPop = Date.now();
+  return popped;
+};
+
 CCAutomated.getBestWrinklerToPop = function () {
   let bestWrinkler = null;
   let maxSucked = CCAutomated.Wrinklers.minSuckedToPop;
@@ -56,9 +70,7 @@ CCAutomated.handleWrinklers = function () {
   if (CCAutomated.Config.Wrinklers === 0) return;
   if (!Game.Upgrades["One mind"].bought) return;
   if (Game.Upgrades["Unholy bait"].bought && !Game.Achievements["Moistburster"].won) {
-    Game.wrinklers.forEach(function (wrinkler) {
-      if (CCAutomated.isWrinklerAttached(wrinkler)) CCAutomated.popWrinkler(wrinkler);
-    });
+    CCAutomated.popAllAttachedWrinklers();
     return;
   }
 
