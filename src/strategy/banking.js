@@ -20,8 +20,5 @@ CCAutomated.getStrategicBankReserveCookies = function () {
   let ratio = strategy.luckyBankRatio || 0;
   if (ratio <= 0) return 0;
 
-  let cps = CCAutomated.isStrongComboActive()
-    ? CCAutomated.getCookiesPerSecond()
-    : CCAutomated.getBaseCookiesPerSecond();
-  return CCAutomated.getLuckyBankTarget(cps) * ratio;
+  return CCAutomated.getLuckyBankTarget(CCAutomated.getBaseCookiesPerSecond()) * ratio;
 };

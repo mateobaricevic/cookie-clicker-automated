@@ -39,10 +39,7 @@ CCAutomated.getComboStatusText = function (combo) {
 
 CCAutomated.getLuckyBankStatusText = function () {
   let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
-  let cookiesPerSecond = CCAutomated.isStrongComboActive()
-    ? CCAutomated.getCookiesPerSecond()
-    : CCAutomated.getBaseCookiesPerSecond();
-  let target = CCAutomated.getLuckyBankTarget(cookiesPerSecond);
+  let target = CCAutomated.getLuckyBankTarget(CCAutomated.getBaseCookiesPerSecond());
   let shortfall = Math.max(0, target - cookies);
 
   return {

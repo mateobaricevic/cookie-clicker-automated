@@ -1043,10 +1043,7 @@ CCAutomated.getStrategicBankReserveCookies = function () {
   let ratio = strategy.luckyBankRatio || 0;
   if (ratio <= 0) return 0;
 
-  let cps = CCAutomated.isStrongComboActive()
-    ? CCAutomated.getCookiesPerSecond()
-    : CCAutomated.getBaseCookiesPerSecond();
-  return CCAutomated.getLuckyBankTarget(cps) * ratio;
+  return CCAutomated.getLuckyBankTarget(CCAutomated.getBaseCookiesPerSecond()) * ratio;
 };
 
 CCAutomated.canUseLumps = function (grimoire) {
@@ -2671,10 +2668,7 @@ CCAutomated.getComboStatusText = function (combo) {
 
 CCAutomated.getLuckyBankStatusText = function () {
   let cookies = typeof Game.cookies === "number" ? Game.cookies : 0;
-  let cookiesPerSecond = CCAutomated.isStrongComboActive()
-    ? CCAutomated.getCookiesPerSecond()
-    : CCAutomated.getBaseCookiesPerSecond();
-  let target = CCAutomated.getLuckyBankTarget(cookiesPerSecond);
+  let target = CCAutomated.getLuckyBankTarget(CCAutomated.getBaseCookiesPerSecond());
   let shortfall = Math.max(0, target - cookies);
 
   return {
